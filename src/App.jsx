@@ -803,12 +803,46 @@ export default function App() {
 
   const calcKosten = (kat) => {
     const mult = BRANCHEN[branche].multipliers[kat.multGroup] || 1;
+    let raw;
     if (kat.isStunden) {
       const monate = kat.isJaehrlich ? 1 : 12;
-      return kat.basisStunden * stundensatz * monate * (dienstleister - 1) * mult;
+      raw = kat.basisStunden * stundensatz * monate * (dienstleister - 1) * mult;
+    } else {
+      raw = volumenWettbewerb * kat.basisProzent * mult * (kat.gruppe === 'B' ? Math.max(1, dienstleister - 1) / 2 : 1);
     }
-    return volumenWettbewerb * kat.basisProzent * mult * (kat.gruppe === 'B' ? Math.max(1, dienstleister - 1) / 2 : 1);
+    return raw * coverageFactor(kat);
   };
+
+  // Wettbewerbs-Abdeckung dämpft die Mehrkosten: wenn der Wettbewerb dieselben
+  // Leistungen / Zertifikate wie Jolmes anbietet, fallen die entsprechenden
+  // Risiko-/Konsolidierungskosten weg. Ohne diese Dämpfung würde das Tool auch
+  // dann hohe Einsparungen ausweisen, wenn der Wettbewerb fachlich gleichwertig ist.
+  const wettbewerbCoverage = useMemo(() => {
+    const relIds = branchenrelevanteServices.map(s => s.id);
+    const totalSrv = relIds.length || 1;
+    const checkedSrv = relIds.filter(id => wettbewerbServices[id]).length;
+    const totalCert = aktiveZertifikate.length || 1;
+    const checkedCert = aktiveZertifikate.filter(z => wettbewerbZertifikate[z.id]).length;
+    const service = checkedSrv / totalSrv;
+    const cert = checkedCert / totalCert;
+    return {
+      service, cert, overall: (service + cert) / 2,
+      checkedSrv, totalSrv, checkedCert, totalCert,
+    };
+  }, [wettbewerbServices, wettbewerbZertifikate, branchenrelevanteServices, aktiveZertifikate]);
+
+  // multGroup → welcher Coverage-Anteil dämpft diese Kostengruppe?
+  function coverageFactor(kat) {
+    const c = wettbewerbCoverage;
+    switch (kat.multGroup) {
+      case 'kommunikation': return Math.max(0, 1 - c.service);   // Lieferanten-Konsolidierung
+      case 'compliance':    return Math.max(0, 1 - c.cert);      // Audit/Haftung wenn keine Zerts
+      case 'operativ':      return Math.max(0, 1 - c.service);   // Notfall/Personal-Lücken
+      case 'qualitaet':     return Math.max(0, 1 - c.overall);   // Qualitäts-Risiko
+      case 'strategisch':   return Math.max(0, 1 - c.overall);   // Wechsel-/Reputationsrisiko
+      default:              return Math.max(0, 1 - c.overall);
+    }
+  }
 
   const ergebnisse = useMemo(() => {
     return relevantCats.map(kat => ({
@@ -816,7 +850,7 @@ export default function App() {
       kosten: calcKosten(kat),
       aktiv: aktiveCategories[kat.id] !== false,
     }));
-  }, [relevantCats, volumenWettbewerb, objekte, dienstleister, stundensatz, branche, aktiveCategories]);
+  }, [relevantCats, volumenWettbewerb, objekte, dienstleister, stundensatz, branche, aktiveCategories, wettbewerbCoverage]);
 
   const aktiveErgebnisse = ergebnisse.filter(e => e.aktiv);
   const gesamtMehrkosten = aktiveErgebnisse.reduce((sum, e) => sum + e.kosten, 0);
@@ -1177,6 +1211,31 @@ export default function App() {
           </h2>
 
           {kundenname && <p style={{ opacity: 0.7, fontSize: '14px', marginBottom: '8px' }}>Kalkulation für: <strong>{kundenname}</strong></p>}
+
+          {/* Coverage-Status: macht transparent, dass Mehrkosten an die abgehakten Wettbewerbs-Leistungen/Zerts gekoppelt sind. */}
+          {(() => {
+            const c = wettbewerbCoverage;
+            const srvPct = Math.round(c.service * 100);
+            const certPct = Math.round(c.cert * 100);
+            const allCovered = c.service >= 1 && c.cert >= 1;
+            const noneCovered = c.service === 0 && c.cert === 0;
+            const bg = allCovered ? 'rgba(25,169,121,0.15)' : noneCovered ? 'rgba(232,116,59,0.15)' : 'rgba(245,241,234,0.08)';
+            const border = allCovered ? '#19A979' : '#E8743B';
+            return (
+              <div style={{ marginTop: '12px', padding: '12px 16px', background: bg, borderLeft: `3px solid ${border}`, borderRadius: '4px', fontSize: '13px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+                <span style={{ opacity: 0.85 }}>
+                  Wettbewerb deckt ab: <strong>{c.checkedSrv}/{c.totalSrv}</strong> Leistungen ({srvPct}%) · <strong>{c.checkedCert}/{c.totalCert}</strong> Zertifikate ({certPct}%)
+                </span>
+                <span style={{ opacity: 0.7, fontSize: '12px' }}>
+                  {allCovered
+                    ? '→ kein Versorgungs- oder Compliance-Risiko, Mehrkosten = 0. Differenzierung nur über Preis und Service-Qualität.'
+                    : noneCovered
+                    ? '→ volles Risikoprofil, Mehrkosten unverändert.'
+                    : '→ Mehrkosten je Risikogruppe (Lieferantenmgmt / Compliance / Operativ / Strategisch) entsprechend gedämpft.'}
+                </span>
+              </div>
+            );
+          })()}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', marginTop: '24px' }}>
             <div>
