@@ -622,55 +622,64 @@ const GRUPPEN_COLORS = {
 };
 
 // Aktuelles Jolmes-Leistungsportfolio (Quelle: jolmes.de — jeder Eintrag entspricht
-// einer aktuell erreichbaren Leistungsseite). Der Wettbewerb deckt davon üblicherweise
-// nur einen Teil ab — über die Checkboxen wird das im Tool sichtbar gemacht.
+// einer aktuell erreichbaren Leistungsseite). `branchen: null` = für alle Branchen
+// relevant; ein Array engt auf bestimmte Branchen ein.
 const SERVICES = [
   // Reinigung
-  { id: 'unterhaltsreinigung', label: 'Unterhaltsreinigung', kategorie: 'Reinigung' },
-  { id: 'glasreinigung', label: 'Glasreinigung', kategorie: 'Reinigung' },
-  { id: 'fassadenreinigung', label: 'Fassadenreinigung', kategorie: 'Reinigung' },
-  { id: 'industriereinigung', label: 'Industriereinigung', kategorie: 'Reinigung' },
-  { id: 'bauschlussreinigung', label: 'Bauschluss-/Sonderreinigung', kategorie: 'Reinigung' },
-  { id: 'desinfektion', label: 'Desinfektionsreinigung', kategorie: 'Reinigung' },
-  { id: 'polster', label: 'Polsterreinigung', kategorie: 'Reinigung' },
-  { id: 'geruch', label: 'Geruchsneutralisation', kategorie: 'Reinigung' },
-  { id: 'messie', label: 'Messiewohnungen / Entrümpelung', kategorie: 'Reinigung' },
-  { id: 'gartenpflege', label: 'Gartenpflege & Außenanlagen', kategorie: 'Reinigung' },
-  { id: 'winterdienst', label: 'Winterdienst', kategorie: 'Reinigung' },
+  { id: 'unterhaltsreinigung', label: 'Unterhaltsreinigung', kategorie: 'Reinigung', branchen: null },
+  { id: 'glasreinigung', label: 'Glasreinigung', kategorie: 'Reinigung', branchen: null },
+  { id: 'fassadenreinigung', label: 'Fassadenreinigung', kategorie: 'Reinigung', branchen: null },
+  { id: 'industriereinigung', label: 'Industriereinigung', kategorie: 'Reinigung', branchen: ['industrie', 'logistik', 'lebensmittel'] },
+  { id: 'bauschlussreinigung', label: 'Bauschluss-/Sonderreinigung', kategorie: 'Reinigung', branchen: null },
+  { id: 'desinfektion', label: 'Desinfektionsreinigung', kategorie: 'Reinigung', branchen: ['healthcare', 'lebensmittel', 'hotellerie', 'bildung'] },
+  { id: 'polster', label: 'Polsterreinigung', kategorie: 'Reinigung', branchen: ['buero', 'hotellerie', 'healthcare', 'oeffentlich', 'banken'] },
+  { id: 'geruch', label: 'Geruchsneutralisation', kategorie: 'Reinigung', branchen: ['hotellerie', 'healthcare', 'lebensmittel'] },
+  { id: 'messie', label: 'Messiewohnungen / Entrümpelung', kategorie: 'Reinigung', branchen: ['oeffentlich', 'healthcare'] },
+  { id: 'gartenpflege', label: 'Gartenpflege & Außenanlagen', kategorie: 'Reinigung', branchen: null },
+  { id: 'winterdienst', label: 'Winterdienst', kategorie: 'Reinigung', branchen: null },
   // Sanierung
-  { id: 'brandschaden', label: 'Brandschadensanierung', kategorie: 'Sanierung' },
-  { id: 'wasserschaden', label: 'Wasserschadensanierung', kategorie: 'Sanierung' },
-  { id: 'schimmel', label: 'Schimmelpilzsanierung', kategorie: 'Sanierung' },
-  { id: 'bestand', label: 'Sanierung im Bestand', kategorie: 'Sanierung' },
-  { id: 'fassadensanierung', label: 'Fassadensanierung', kategorie: 'Sanierung' },
-  { id: 'mauerwerk', label: 'Mauerwerksabdichtung', kategorie: 'Sanierung' },
-  { id: 'keller', label: 'Kellerwerksabdichtung', kategorie: 'Sanierung' },
-  { id: 'risse', label: 'Risssanierung', kategorie: 'Sanierung' },
-  { id: 'bodensanierung', label: 'Bodensanierung', kategorie: 'Sanierung' },
-  { id: 'bautrocknung', label: 'Bautrocknung', kategorie: 'Sanierung' },
+  { id: 'brandschaden', label: 'Brandschadensanierung', kategorie: 'Sanierung', branchen: null },
+  { id: 'wasserschaden', label: 'Wasserschadensanierung', kategorie: 'Sanierung', branchen: null },
+  { id: 'schimmel', label: 'Schimmelpilzsanierung', kategorie: 'Sanierung', branchen: null },
+  { id: 'bestand', label: 'Sanierung im Bestand', kategorie: 'Sanierung', branchen: null },
+  { id: 'fassadensanierung', label: 'Fassadensanierung', kategorie: 'Sanierung', branchen: null },
+  { id: 'mauerwerk', label: 'Mauerwerksabdichtung', kategorie: 'Sanierung', branchen: null },
+  { id: 'keller', label: 'Kellerwerksabdichtung', kategorie: 'Sanierung', branchen: null },
+  { id: 'risse', label: 'Risssanierung', kategorie: 'Sanierung', branchen: null },
+  { id: 'bodensanierung', label: 'Bodensanierung', kategorie: 'Sanierung', branchen: null },
+  { id: 'bautrocknung', label: 'Bautrocknung', kategorie: 'Sanierung', branchen: null },
   // Handwerk
-  { id: 'maler', label: 'Malerarbeiten', kategorie: 'Handwerk' },
-  { id: 'trockenbau', label: 'Trockenbau', kategorie: 'Handwerk' },
-  { id: 'bodenbelag', label: 'Bodenbelagsarbeiten', kategorie: 'Handwerk' },
-  { id: 'industriehallenbeschichtung', label: 'Industriehallenbeschichtung', kategorie: 'Handwerk' },
+  { id: 'maler', label: 'Malerarbeiten', kategorie: 'Handwerk', branchen: null },
+  { id: 'trockenbau', label: 'Trockenbau', kategorie: 'Handwerk', branchen: null },
+  { id: 'bodenbelag', label: 'Bodenbelagsarbeiten', kategorie: 'Handwerk', branchen: null },
+  { id: 'industriehallenbeschichtung', label: 'Industriehallenbeschichtung', kategorie: 'Handwerk', branchen: ['industrie', 'logistik'] },
   // Personal
-  { id: 'arbeitnehmerueberlassung', label: 'Arbeitnehmerüberlassung / Zeitarbeit', kategorie: 'Personal' },
-  { id: 'direktvermittlung', label: 'Direktvermittlung & Headhunting', kategorie: 'Personal' },
+  { id: 'arbeitnehmerueberlassung', label: 'Arbeitnehmerüberlassung / Zeitarbeit', kategorie: 'Personal', branchen: ['industrie', 'logistik', 'healthcare', 'hotellerie', 'lebensmittel'] },
+  { id: 'direktvermittlung', label: 'Direktvermittlung & Headhunting', kategorie: 'Personal', branchen: null },
   // Energie
-  { id: 'photovoltaik', label: 'Photovoltaik (Beratung & Anlage)', kategorie: 'Energie' },
-  { id: 'batteriespeicher', label: 'Batteriespeicher', kategorie: 'Energie' },
+  { id: 'photovoltaik', label: 'Photovoltaik (Beratung & Anlage)', kategorie: 'Energie', branchen: null },
+  { id: 'batteriespeicher', label: 'Batteriespeicher', kategorie: 'Energie', branchen: null },
 ];
 
-// Zertifikate. downloadUrl zeigt auf eine PDF unter public/zertifikate/. Sobald die
-// Datei dort liegt, wird automatisch ein Download-Link gerendert; bis dahin steht
-// "PDF folgt" als Platzhalter.
+// Zertifikate. Jeder Eintrag enthält den Geltungsbereich (Firmen-IDs) und ein
+// optionales downloadUrl — entweder direkt auf eine PDF (z. B. unter
+// public/zertifikate/) oder auf eine Übersichtsseite. Der Renderer unterscheidet
+// anhand des .pdf-Suffixes zwischen "↓ PDF" und "↗ ansehen".
+const FIRMEN = [
+  { id: 'gebaeudereinigung', label: 'Jolmes Gebäudereinigung' },
+  { id: 'handwerk',          label: 'Jolmes Handwerk' },
+  { id: 'energie',           label: 'Jolmes Energie- & Personalservice' },
+];
+
+const JOLMES_CERT_PAGE = 'https://jolmes.de/zertifikate/';
 const ZERTIFIKATE = [
-  { id: 'iso9001', label: 'DIN EN ISO 9001 (Qualität)', downloadUrl: null },
-  { id: 'iso14001', label: 'DIN EN ISO 14001 (Umwelt)', downloadUrl: null },
-  { id: 'amsbgbau', label: 'AMS BG Bau (Arbeitsschutz)', downloadUrl: null },
-  { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)', downloadUrl: null },
-  { id: 'innung', label: 'Innungsmitglied (Gebäudereiniger-Innung)', downloadUrl: null },
-  { id: 'meister', label: 'Meisterbetrieb', downloadUrl: null },
+  { id: 'iso9001',    label: 'DIN EN ISO 9001 (Qualität)',                 firmen: ['gebaeudereinigung', 'handwerk', 'energie'], downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'iso14001',   label: 'DIN EN ISO 14001 (Umwelt)',                  firmen: ['gebaeudereinigung', 'handwerk', 'energie'], downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'amsbgbau',   label: 'AMS BG Bau (Arbeitsschutz)',                 firmen: ['gebaeudereinigung'],                       downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)',           firmen: ['handwerk'],                                downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'innung',     label: 'Innungsmitglied (Gebäudereiniger-Innung)',   firmen: ['gebaeudereinigung'],                       downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'meister',    label: 'Meisterbetrieb',                             firmen: ['gebaeudereinigung', 'handwerk'],           downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'asbest',     label: 'TRGS 519 / Asbest-Sachkunde',                firmen: ['handwerk'],                                downloadUrl: JOLMES_CERT_PAGE },
 ];
 
 const SERVICE_KATEGORIEN = ['Reinigung', 'Sanierung', 'Handwerk', 'Personal', 'Energie'];
@@ -694,6 +703,9 @@ export default function App() {
   // Was kann der Wettbewerb? Default: nur Basis-Reinigung, kein Zertifikat.
   const [wettbewerbServices, setWettbewerbServices] = useState({ unterhaltsreinigung: true, glasreinigung: true });
   const [wettbewerbZertifikate, setWettbewerbZertifikate] = useState({});
+  // Hybrid-Filter: standardmäßig nur Branchen-relevante Jolmes-Leistungen einblenden;
+  // Sales kann per Toggle alle 29 Leistungen sichtbar machen.
+  const [showAllServices, setShowAllServices] = useState(false);
 
   useEffect(() => {
     const onBefore = () => setForceOpenAll(true);
@@ -743,7 +755,13 @@ export default function App() {
     setAktiveCategories({});
     setWettbewerbServices({ unterhaltsreinigung: true, glasreinigung: true });
     setWettbewerbZertifikate({});
+    setShowAllServices(false);
   };
+
+  // Branche-spezifische Service-Auswahl. branchen===null = universell relevant.
+  const isServiceRelevant = (s) => s.branchen === null || s.branchen.includes(branche);
+  const sichtbareServices = showAllServices ? SERVICES : SERVICES.filter(isServiceRelevant);
+  const branchenrelevanteServices = SERVICES.filter(isServiceRelevant);
 
   const relevantCats = useMemo(() => {
     return KATEGORIEN.filter(k => !k.branchen || k.branchen.includes(branche));
@@ -983,9 +1001,25 @@ export default function App() {
             Haken Sie an, was der bisherige Dienstleister tatsächlich abdeckt. Alles, was offen bleibt, muss extern oder intern kompensiert werden — und wird im PDF als Versorgungslücke ausgewiesen.
           </p>
 
-          <h3 style={h3Style}>Dienstleistungen</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+            <h3 style={{ ...h3Style, marginBottom: 0 }}>Dienstleistungen</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', color: '#5A6478' }}>
+                {showAllServices
+                  ? `Alle ${SERVICES.length} Jolmes-Leistungen`
+                  : `${branchenrelevanteServices.length} von ${SERVICES.length} (${BRANCHEN[branche].label})`}
+              </span>
+              <button
+                onClick={() => setShowAllServices(v => !v)}
+                style={{ ...btnSecondary, padding: '6px 12px', fontSize: '12px' }}
+              >
+                {showAllServices ? '← Nur branchenrelevante' : 'Alle Leistungen anzeigen →'}
+              </button>
+            </div>
+          </div>
           {SERVICE_KATEGORIEN.map(kat => {
-            const items = SERVICES.filter(s => s.kategorie === kat);
+            const items = sichtbareServices.filter(s => s.kategorie === kat);
+            if (items.length === 0) return null;
             const abgedeckt = items.filter(s => wettbewerbServices[s.id]).length;
             return (
               <div key={kat} style={{ marginBottom: '18px' }}>
@@ -996,10 +1030,12 @@ export default function App() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
                   {items.map(s => {
                     const checked = !!wettbewerbServices[s.id];
+                    const branchenfremd = !isServiceRelevant(s);
                     return (
-                      <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', cursor: 'pointer', fontSize: '14px' }}>
+                      <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', cursor: 'pointer', fontSize: '14px', opacity: branchenfremd ? 0.6 : 1 }}>
                         <input type="checkbox" checked={checked} onChange={() => toggleService(s.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979' }} />
-                        <span>{s.label}</span>
+                        <span style={{ flex: 1 }}>{s.label}</span>
+                        {branchenfremd && <span style={{ fontSize: '10px', color: '#9A9485', textTransform: 'uppercase', letterSpacing: '0.05em' }} title="für die gewählte Branche untypisch">extra</span>}
                       </label>
                     );
                   })}
@@ -1009,38 +1045,49 @@ export default function App() {
           })}
 
           <h3 style={{ ...h3Style, marginTop: '24px' }}>Zertifikate (Jolmes-Nachweise zum Download)</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '10px' }}>
             {ZERTIFIKATE.map(z => {
               const checked = !!wettbewerbZertifikate[z.id];
+              const isPdf = z.downloadUrl && /\.pdf(\?|#|$)/i.test(z.downloadUrl);
+              const linkLabel = isPdf ? '↓ PDF' : '↗ Ansehen';
               return (
-                <div key={z.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', fontSize: '14px' }}>
-                  <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', minWidth: 0 }}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleZert(z.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979', flexShrink: 0 }} />
-                    <span style={{ minWidth: 0 }}>{z.label}</span>
-                  </label>
-                  {z.downloadUrl ? (
-                    <a href={z.downloadUrl} target="_blank" rel="noopener noreferrer" download
-                       style={{ fontSize: '12px', color: '#E8743B', textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 600, padding: '4px 8px', border: '1px solid #FFD4BB', borderRadius: '4px', background: 'white' }}>
-                      ↓ PDF
-                    </a>
-                  ) : (
-                    <span title="Zertifikat-PDF unter public/zertifikate/ hinterlegen, dann downloadUrl setzen"
-                          style={{ fontSize: '11px', color: '#9A9485', whiteSpace: 'nowrap', fontStyle: 'italic' }}>
-                      PDF folgt
-                    </span>
-                  )}
+                <div key={z.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', fontSize: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', minWidth: 0 }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleZert(z.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979', flexShrink: 0 }} />
+                      <span style={{ minWidth: 0, fontWeight: 500 }}>{z.label}</span>
+                    </label>
+                    {z.downloadUrl ? (
+                      <a href={z.downloadUrl} target="_blank" rel="noopener noreferrer" {...(isPdf ? { download: true } : {})}
+                         style={{ fontSize: '12px', color: '#E8743B', textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 600, padding: '4px 8px', border: '1px solid #FFD4BB', borderRadius: '4px', background: 'white' }}>
+                        {linkLabel}
+                      </a>
+                    ) : (
+                      <span title="Zertifikat-PDF unter public/zertifikate/ hinterlegen, dann downloadUrl setzen"
+                            style={{ fontSize: '11px', color: '#9A9485', whiteSpace: 'nowrap', fontStyle: 'italic' }}>
+                        PDF folgt
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {(z.firmen || []).map(fid => {
+                      const firma = FIRMEN.find(f => f.id === fid);
+                      if (!firma) return null;
+                      return <span key={fid} style={{ fontSize: '10px', padding: '2px 8px', background: '#1A2332', color: '#F5F1EA', borderRadius: '3px', letterSpacing: '0.02em' }}>{firma.label}</span>;
+                    })}
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Zusammenfassung Lücken */}
+          {/* Zusammenfassung Lücken — auf branchen-relevante Leistungen beschränkt */}
           <div style={{ marginTop: '24px', padding: '16px 18px', background: '#FFF4ED', border: '1px solid #FFD4BB', borderRadius: '8px' }}>
             <div style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '10px', fontWeight: 600 }}>
-              Lücken beim Wettbewerb (Jolmes deckt es ab)
+              Lücken beim Wettbewerb (Jolmes deckt es ab) — {BRANCHEN[branche].label}
             </div>
             {(() => {
-              const luecken = SERVICES.filter(s => !wettbewerbServices[s.id]);
+              const luecken = branchenrelevanteServices.filter(s => !wettbewerbServices[s.id]);
               const fehlendeZert = ZERTIFIKATE.filter(z => !wettbewerbZertifikate[z.id]);
               if (luecken.length === 0 && fehlendeZert.length === 0) {
                 return <div style={{ fontSize: '13px', color: '#1A2332' }}>Wettbewerb deckt alle Leistungen und Zertifikate ab — Differenzierung über TCO und Service-Qualität.</div>;
