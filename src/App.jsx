@@ -625,37 +625,52 @@ const GRUPPEN_COLORS = {
 // einer aktuell erreichbaren Leistungsseite). Der Wettbewerb deckt davon üblicherweise
 // nur einen Teil ab — über die Checkboxen wird das im Tool sichtbar gemacht.
 const SERVICES = [
+  // Reinigung
   { id: 'unterhaltsreinigung', label: 'Unterhaltsreinigung', kategorie: 'Reinigung' },
-  { id: 'glasfassadepv', label: 'Glas-, Fassaden- & Photovoltaikreinigung', kategorie: 'Reinigung' },
+  { id: 'glasreinigung', label: 'Glasreinigung', kategorie: 'Reinigung' },
+  { id: 'fassadenreinigung', label: 'Fassadenreinigung', kategorie: 'Reinigung' },
   { id: 'industriereinigung', label: 'Industriereinigung', kategorie: 'Reinigung' },
   { id: 'bauschlussreinigung', label: 'Bauschluss-/Sonderreinigung', kategorie: 'Reinigung' },
   { id: 'desinfektion', label: 'Desinfektionsreinigung', kategorie: 'Reinigung' },
   { id: 'polster', label: 'Polsterreinigung', kategorie: 'Reinigung' },
   { id: 'geruch', label: 'Geruchsneutralisation', kategorie: 'Reinigung' },
   { id: 'messie', label: 'Messiewohnungen / Entrümpelung', kategorie: 'Reinigung' },
+  { id: 'gartenpflege', label: 'Gartenpflege & Außenanlagen', kategorie: 'Reinigung' },
+  { id: 'winterdienst', label: 'Winterdienst', kategorie: 'Reinigung' },
+  // Sanierung
   { id: 'brandschaden', label: 'Brandschadensanierung', kategorie: 'Sanierung' },
   { id: 'wasserschaden', label: 'Wasserschadensanierung', kategorie: 'Sanierung' },
   { id: 'schimmel', label: 'Schimmelpilzsanierung', kategorie: 'Sanierung' },
   { id: 'bestand', label: 'Sanierung im Bestand', kategorie: 'Sanierung' },
+  { id: 'fassadensanierung', label: 'Fassadensanierung', kategorie: 'Sanierung' },
   { id: 'mauerwerk', label: 'Mauerwerksabdichtung', kategorie: 'Sanierung' },
   { id: 'keller', label: 'Kellerwerksabdichtung', kategorie: 'Sanierung' },
   { id: 'risse', label: 'Risssanierung', kategorie: 'Sanierung' },
   { id: 'bodensanierung', label: 'Bodensanierung', kategorie: 'Sanierung' },
   { id: 'bautrocknung', label: 'Bautrocknung', kategorie: 'Sanierung' },
+  // Handwerk
   { id: 'maler', label: 'Malerarbeiten', kategorie: 'Handwerk' },
   { id: 'trockenbau', label: 'Trockenbau', kategorie: 'Handwerk' },
+  { id: 'bodenbelag', label: 'Bodenbelagsarbeiten', kategorie: 'Handwerk' },
   { id: 'industriehallenbeschichtung', label: 'Industriehallenbeschichtung', kategorie: 'Handwerk' },
-  { id: 'arbeitnehmerueberlassung', label: 'Arbeitnehmerüberlassung', kategorie: 'Personal' },
+  // Personal
+  { id: 'arbeitnehmerueberlassung', label: 'Arbeitnehmerüberlassung / Zeitarbeit', kategorie: 'Personal' },
   { id: 'direktvermittlung', label: 'Direktvermittlung & Headhunting', kategorie: 'Personal' },
-  { id: 'energie', label: 'Photovoltaik & Energieoptimierung', kategorie: 'Energie' },
+  // Energie
+  { id: 'photovoltaik', label: 'Photovoltaik (Beratung & Anlage)', kategorie: 'Energie' },
   { id: 'batteriespeicher', label: 'Batteriespeicher', kategorie: 'Energie' },
 ];
 
+// Zertifikate. downloadUrl zeigt auf eine PDF unter public/zertifikate/. Sobald die
+// Datei dort liegt, wird automatisch ein Download-Link gerendert; bis dahin steht
+// "PDF folgt" als Platzhalter.
 const ZERTIFIKATE = [
-  { id: 'iso9001', label: 'DIN EN ISO 9001 (Qualität)' },
-  { id: 'iso14001', label: 'DIN EN ISO 14001 (Umwelt)' },
-  { id: 'amsbgbau', label: 'AMS BG Bau (Arbeitsschutz)' },
-  { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)' },
+  { id: 'iso9001', label: 'DIN EN ISO 9001 (Qualität)', downloadUrl: null },
+  { id: 'iso14001', label: 'DIN EN ISO 14001 (Umwelt)', downloadUrl: null },
+  { id: 'amsbgbau', label: 'AMS BG Bau (Arbeitsschutz)', downloadUrl: null },
+  { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)', downloadUrl: null },
+  { id: 'innung', label: 'Innungsmitglied (Gebäudereiniger-Innung)', downloadUrl: null },
+  { id: 'meister', label: 'Meisterbetrieb', downloadUrl: null },
 ];
 
 const SERVICE_KATEGORIEN = ['Reinigung', 'Sanierung', 'Handwerk', 'Personal', 'Energie'];
@@ -677,7 +692,7 @@ export default function App() {
   const [expandedCat, setExpandedCat] = useState(null);
   const [forceOpenAll, setForceOpenAll] = useState(false);
   // Was kann der Wettbewerb? Default: nur Basis-Reinigung, kein Zertifikat.
-  const [wettbewerbServices, setWettbewerbServices] = useState({ unterhaltsreinigung: true, glasfassadepv: true });
+  const [wettbewerbServices, setWettbewerbServices] = useState({ unterhaltsreinigung: true, glasreinigung: true });
   const [wettbewerbZertifikate, setWettbewerbZertifikate] = useState({});
 
   useEffect(() => {
@@ -726,7 +741,7 @@ export default function App() {
     setStundensatz(BRANCHEN['industrie'].defaultStundensatz);
     setKundenname('');
     setAktiveCategories({});
-    setWettbewerbServices({ unterhaltsreinigung: true, glasfassadepv: true });
+    setWettbewerbServices({ unterhaltsreinigung: true, glasreinigung: true });
     setWettbewerbZertifikate({});
   };
 
@@ -993,15 +1008,28 @@ export default function App() {
             );
           })}
 
-          <h3 style={{ ...h3Style, marginTop: '24px' }}>Zertifikate</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px' }}>
+          <h3 style={{ ...h3Style, marginTop: '24px' }}>Zertifikate (Jolmes-Nachweise zum Download)</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '8px' }}>
             {ZERTIFIKATE.map(z => {
               const checked = !!wettbewerbZertifikate[z.id];
               return (
-                <label key={z.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', cursor: 'pointer', fontSize: '14px' }}>
-                  <input type="checkbox" checked={checked} onChange={() => toggleZert(z.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979' }} />
-                  <span>{z.label}</span>
-                </label>
+                <div key={z.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', fontSize: '14px' }}>
+                  <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', minWidth: 0 }}>
+                    <input type="checkbox" checked={checked} onChange={() => toggleZert(z.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979', flexShrink: 0 }} />
+                    <span style={{ minWidth: 0 }}>{z.label}</span>
+                  </label>
+                  {z.downloadUrl ? (
+                    <a href={z.downloadUrl} target="_blank" rel="noopener noreferrer" download
+                       style={{ fontSize: '12px', color: '#E8743B', textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 600, padding: '4px 8px', border: '1px solid #FFD4BB', borderRadius: '4px', background: 'white' }}>
+                      ↓ PDF
+                    </a>
+                  ) : (
+                    <span title="Zertifikat-PDF unter public/zertifikate/ hinterlegen, dann downloadUrl setzen"
+                          style={{ fontSize: '11px', color: '#9A9485', whiteSpace: 'nowrap', fontStyle: 'italic' }}>
+                      PDF folgt
+                    </span>
+                  )}
+                </div>
               );
             })}
           </div>
