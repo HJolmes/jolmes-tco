@@ -707,6 +707,40 @@ export default function App() {
   // Sales kann per Toggle alle 29 Leistungen sichtbar machen.
   const [showAllServices, setShowAllServices] = useState(false);
 
+  // Live-Zertifikatsdaten aus /zertifikate/index.json (vom täglichen Sync-Workflow
+  // geschrieben). Fallback auf die hardcoded ZERTIFIKATE-Konstante, falls die
+  // Datei beim Bundle-Build noch nicht existiert oder fetch fehlschlägt.
+  const [liveCerts, setLiveCerts] = useState(null);
+  const [certsSyncedAt, setCertsSyncedAt] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const url = `${import.meta.env.BASE_URL}zertifikate/index.json`;
+    fetch(url, { cache: 'no-cache' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled || !data || !Array.isArray(data.entries) || data.entries.length === 0) return;
+        setLiveCerts(data.entries);
+        setCertsSyncedAt(data.syncedAt || null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const aktiveZertifikate = liveCerts || ZERTIFIKATE;
+  const resolveCertUrl = (u) => {
+    if (!u) return null;
+    if (/^https?:\/\//i.test(u)) return u;
+    return `${import.meta.env.BASE_URL}${u.replace(/^\/+/, '')}`;
+  };
+  const today = new Date().toISOString().slice(0, 10);
+  const certStatus = (gueltigBis) => {
+    if (!gueltigBis) return null;
+    const days = Math.floor((new Date(gueltigBis) - new Date(today)) / 86400000);
+    if (days < 0)   return { color: '#C0392B', bg: '#FBEAE7', label: `abgelaufen (${gueltigBis})` };
+    if (days < 30)  return { color: '#C0392B', bg: '#FBEAE7', label: `läuft in ${days} T ab (${gueltigBis})` };
+    if (days < 90)  return { color: '#B58300', bg: '#FFF6DB', label: `läuft in ${days} T ab (${gueltigBis})` };
+    return { color: '#19A979', bg: '#EDF9F3', label: `gültig bis ${gueltigBis}` };
+  };
+
   useEffect(() => {
     const onBefore = () => setForceOpenAll(true);
     const onAfter = () => setForceOpenAll(false);
@@ -1044,12 +1078,21 @@ export default function App() {
             );
           })}
 
-          <h3 style={{ ...h3Style, marginTop: '24px' }}>Zertifikate (Jolmes-Nachweise zum Download)</h3>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '24px', marginBottom: '8px' }}>
+            <h3 style={{ ...h3Style, marginBottom: 0 }}>Zertifikate (Jolmes-Nachweise zum Download)</h3>
+            {certsSyncedAt && (
+              <span style={{ fontSize: '11px', color: '#9A9485' }}>
+                Auto-Sync: {new Date(certsSyncedAt).toLocaleDateString('de-DE')}
+              </span>
+            )}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '10px' }}>
-            {ZERTIFIKATE.map(z => {
+            {aktiveZertifikate.map(z => {
               const checked = !!wettbewerbZertifikate[z.id];
-              const isPdf = z.downloadUrl && /\.pdf(\?|#|$)/i.test(z.downloadUrl);
+              const url = resolveCertUrl(z.downloadUrl);
+              const isPdf = url && /\.pdf(\?|#|$)/i.test(url);
               const linkLabel = isPdf ? '↓ PDF' : '↗ Ansehen';
+              const status = certStatus(z.gueltigBis);
               return (
                 <div key={z.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', fontSize: '14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1057,24 +1100,29 @@ export default function App() {
                       <input type="checkbox" checked={checked} onChange={() => toggleZert(z.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979', flexShrink: 0 }} />
                       <span style={{ minWidth: 0, fontWeight: 500 }}>{z.label}</span>
                     </label>
-                    {z.downloadUrl ? (
-                      <a href={z.downloadUrl} target="_blank" rel="noopener noreferrer" {...(isPdf ? { download: true } : {})}
+                    {url ? (
+                      <a href={url} target="_blank" rel="noopener noreferrer" {...(isPdf ? { download: true } : {})}
                          style={{ fontSize: '12px', color: '#E8743B', textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 600, padding: '4px 8px', border: '1px solid #FFD4BB', borderRadius: '4px', background: 'white' }}>
                         {linkLabel}
                       </a>
                     ) : (
-                      <span title="Zertifikat-PDF unter public/zertifikate/ hinterlegen, dann downloadUrl setzen"
+                      <span title="Zertifikat-PDF unter public/zertifikate/ hinterlegen oder Sync-Workflow ausführen"
                             style={{ fontSize: '11px', color: '#9A9485', whiteSpace: 'nowrap', fontStyle: 'italic' }}>
                         PDF folgt
                       </span>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
                     {(z.firmen || []).map(fid => {
                       const firma = FIRMEN.find(f => f.id === fid);
                       if (!firma) return null;
                       return <span key={fid} style={{ fontSize: '10px', padding: '2px 8px', background: '#1A2332', color: '#F5F1EA', borderRadius: '3px', letterSpacing: '0.02em' }}>{firma.label}</span>;
                     })}
+                    {status && (
+                      <span style={{ fontSize: '10px', padding: '2px 8px', background: status.bg, color: status.color, borderRadius: '3px', letterSpacing: '0.02em', fontWeight: 600 }}>
+                        {status.label}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -1088,7 +1136,7 @@ export default function App() {
             </div>
             {(() => {
               const luecken = branchenrelevanteServices.filter(s => !wettbewerbServices[s.id]);
-              const fehlendeZert = ZERTIFIKATE.filter(z => !wettbewerbZertifikate[z.id]);
+              const fehlendeZert = aktiveZertifikate.filter(z => !wettbewerbZertifikate[z.id]);
               if (luecken.length === 0 && fehlendeZert.length === 0) {
                 return <div style={{ fontSize: '13px', color: '#1A2332' }}>Wettbewerb deckt alle Leistungen und Zertifikate ab — Differenzierung über TCO und Service-Qualität.</div>;
               }
