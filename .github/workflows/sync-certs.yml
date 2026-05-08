@@ -1,0 +1,42 @@
+name: Sync Jolmes-Zertifikate
+
+on:
+  schedule:
+    # täglich 03:17 UTC (= 05:17 MESZ / 04:17 MEZ)
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-certs
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install poppler-utils (pdftotext)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils
+
+      - name: Run sync
+        run: node scripts/sync-certs.mjs
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name 'jolmes-cert-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/zertifikate/
+          if git diff --cached --quiet; then
+            echo 'no changes'
+          else
+            git commit -m "chore(certs): sync Zertifikate $(date -u +%Y-%m-%d)"
+            git push origin HEAD:main
+          fi

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "iso9001",
+    "label": "DIN EN ISO 9001 (Qualität)",
+    "firmen": ["gebaeudereinigung", "handwerk", "energie"],
+    "downloadUrl": "https://jolmes.de/zertifikate/"
+  },
+  {
+    "id": "iso14001",
+    "label": "DIN EN ISO 14001 (Umwelt)",
+    "firmen": ["gebaeudereinigung", "handwerk", "energie"],
+    "downloadUrl": "https://jolmes.de/zertifikate/"
+  },
+  {
+    "id": "amsbgbau",
+    "label": "AMS BG Bau (Arbeitsschutz)",
+    "firmen": ["gebaeudereinigung"],
+    "downloadUrl": "https://jolmes.de/zertifikate/"
+  },
+  {
+    "id": "dguv201028",
+    "label": "DGUV 201-028 (Schimmelsanierung)",
+    "firmen": ["handwerk"],
+    "downloadUrl": "https://jolmes.de/zertifikate/"
+  },
+  {
+    "id": "innung",
+    "label": "Innungsmitglied (Gebäudereiniger-Innung)",
+    "firmen": ["gebaeudereinigung"],
+    "downloadUrl": "https://jolmes.de/zertifikate/"
+  },
+  {
+    "id": "meister",
+    "label": "Meisterbetrieb",
+    "firmen": ["gebaeudereinigung", "handwerk"],
+    "downloadUrl": "https://jolmes.de/zertifikate/"
+  },
+  {
+    "id": "asbest",
+    "label": "TRGS 519 / Asbest-Sachkunde",
+    "firmen": ["handwerk"],
+    "downloadUrl": "https://jolmes.de/zertifikate/"
+  }
+]
