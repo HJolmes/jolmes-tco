@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 
 // ============================================================
@@ -621,6 +621,43 @@ const GRUPPEN_COLORS = {
   'B-spez': '#BF399E',
 };
 
+// Vollständiges Jolmes-Leistungsportfolio (Quelle: jolmes.de). Der Wettbewerb deckt davon
+// üblicherweise nur einen Teil ab — über die Checkboxen wird das im Tool sichtbar gemacht.
+const SERVICES = [
+  { id: 'unterhaltsreinigung', label: 'Unterhaltsreinigung', kategorie: 'Reinigung' },
+  { id: 'glasreinigung', label: 'Glasreinigung', kategorie: 'Reinigung' },
+  { id: 'bauschlussreinigung', label: 'Bauschluss-/Sonderreinigung', kategorie: 'Reinigung' },
+  { id: 'desinfektion', label: 'Desinfektionsreinigung', kategorie: 'Reinigung' },
+  { id: 'polster', label: 'Polsterreinigung', kategorie: 'Reinigung' },
+  { id: 'graffiti', label: 'Graffiti-Entfernung', kategorie: 'Reinigung' },
+  { id: 'wildkraut', label: 'Wildkraut-/Wegereinigung', kategorie: 'Reinigung' },
+  { id: 'messie', label: 'Messiewohnungen / Entrümpelung', kategorie: 'Reinigung' },
+  { id: 'geruch', label: 'Geruchsneutralisation', kategorie: 'Reinigung' },
+  { id: 'brandschaden', label: 'Brandschadensanierung', kategorie: 'Sanierung' },
+  { id: 'wasserschaden', label: 'Wasserschadensanierung', kategorie: 'Sanierung' },
+  { id: 'schimmel', label: 'Schimmelpilzsanierung', kategorie: 'Sanierung' },
+  { id: 'bestand', label: 'Sanierung im Bestand', kategorie: 'Sanierung' },
+  { id: 'mauerwerk', label: 'Mauerwerksabdichtung', kategorie: 'Sanierung' },
+  { id: 'keller', label: 'Kellerwerksabdichtung', kategorie: 'Sanierung' },
+  { id: 'risse', label: 'Risssanierung', kategorie: 'Sanierung' },
+  { id: 'maler', label: 'Malerarbeiten', kategorie: 'Handwerk' },
+  { id: 'trockenbau', label: 'Trockenbau', kategorie: 'Handwerk' },
+  { id: 'bodenbeschichtung', label: 'Bodenbeschichtung (Industrie/ESD/Parkhaus)', kategorie: 'Handwerk' },
+  { id: 'sicherheit', label: 'Sicherheitsdienst / Werkschutz', kategorie: 'Personal & Sicherheit' },
+  { id: 'personal', label: 'Personalvermittlung / Zeitarbeit', kategorie: 'Personal & Sicherheit' },
+];
+
+const ZERTIFIKATE = [
+  { id: 'iso9001', label: 'DIN EN ISO 9001 (Qualität)' },
+  { id: 'iso14001', label: 'DIN EN ISO 14001 (Umwelt)' },
+  { id: 'iso45001', label: 'DIN EN ISO 45001 (Arbeits- & Gesundheitsschutz)' },
+  { id: 'amsbgbau', label: 'AMS BG Bau (Arbeitsschutz)' },
+  { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)' },
+  { id: 'innung', label: 'Innungsmitglied / Meisterbetrieb' },
+];
+
+const SERVICE_KATEGORIEN = ['Reinigung', 'Sanierung', 'Handwerk', 'Personal & Sicherheit'];
+
 const formatEUR = (n) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const formatNum = (n) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(n);
 
@@ -636,6 +673,32 @@ export default function App() {
   const [aktiveCategories, setAktiveCategories] = useState({});
   const [zeigAnnahmen, setZeigAnnahmen] = useState(false);
   const [expandedCat, setExpandedCat] = useState(null);
+  const [forceOpenAll, setForceOpenAll] = useState(false);
+  // Was kann der Wettbewerb? Default: nur Basis-Reinigung, kein Zertifikat.
+  const [wettbewerbServices, setWettbewerbServices] = useState({ unterhaltsreinigung: true, glasreinigung: true });
+  const [wettbewerbZertifikate, setWettbewerbZertifikate] = useState({});
+
+  useEffect(() => {
+    const onBefore = () => setForceOpenAll(true);
+    const onAfter = () => setForceOpenAll(false);
+    window.addEventListener('beforeprint', onBefore);
+    window.addEventListener('afterprint', onAfter);
+    return () => {
+      window.removeEventListener('beforeprint', onBefore);
+      window.removeEventListener('afterprint', onAfter);
+    };
+  }, []);
+
+  const handlePrint = () => {
+    setForceOpenAll(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.print();
+      setTimeout(() => setForceOpenAll(false), 300);
+    }));
+  };
+
+  const toggleService = (id) => setWettbewerbServices(s => ({ ...s, [id]: !s[id] }));
+  const toggleZert = (id) => setWettbewerbZertifikate(z => ({ ...z, [id]: !z[id] }));
 
   // Effektive Jahressummen je nach Modus
   const volumenWettbewerb = eingabeModus === 'objekt' ? volumen * objekte : volumen;
@@ -661,6 +724,8 @@ export default function App() {
     setStundensatz(BRANCHEN['industrie'].defaultStundensatz);
     setKundenname('');
     setAktiveCategories({});
+    setWettbewerbServices({ unterhaltsreinigung: true, glasreinigung: true });
+    setWettbewerbZertifikate({});
   };
 
   const relevantCats = useMemo(() => {
@@ -709,7 +774,7 @@ export default function App() {
   const preisDifferenzProzent = volumenWettbewerb > 0 ? (preisDifferenz / volumenWettbewerb) * 100 : 0;
 
   return (
-    <div style={{ fontFamily: '"Inter", "Segoe UI", -apple-system, sans-serif', backgroundColor: '#F5F1EA', minHeight: '100vh', color: '#1A2332', padding: '24px' }}>
+    <div style={{ fontFamily: '"Inter", "Segoe UI", -apple-system, sans-serif', backgroundColor: '#F5F1EA', minHeight: '100vh', color: '#1A2332', padding: 'clamp(12px, 3vw, 24px)' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@300;400;500;600;700&display=swap');
         @media print {
@@ -717,6 +782,13 @@ export default function App() {
           .no-print { display: none !important; }
           .page-break { page-break-before: always; }
           .print-keep { break-inside: avoid; }
+          /* Kategorien-Details im PDF-Druck immer ausgeklappt */
+          details > *:not(summary) { display: block !important; }
+          details summary { cursor: default !important; }
+        }
+        @media (max-width: 640px) {
+          details summary { gap: 8px !important; }
+          details summary > div:first-child { gap: 8px !important; }
         }
         .fraunces { font-family: 'Fraunces', Georgia, serif; }
         .inter { font-family: 'Inter', sans-serif; }
@@ -742,7 +814,7 @@ export default function App() {
               <div style={{ display: 'inline-block', padding: '4px 12px', background: '#1A2332', color: '#F5F1EA', fontSize: '11px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '12px' }}>
                 Jolmes Gruppe · Paderborn
               </div>
-              <h1 className="fraunces" style={{ fontSize: '52px', lineHeight: 1.05, fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
+              <h1 className="fraunces" style={{ fontSize: 'clamp(30px, 6vw, 52px)', lineHeight: 1.05, fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
                 Was kostet es, uns <span className="gradient-text" style={{ fontStyle: 'italic' }}>nicht</span><br />zu beauftragen?
               </h1>
               <p style={{ fontSize: '17px', color: '#5A6478', marginTop: '12px', maxWidth: '720px' }}>
@@ -750,7 +822,7 @@ export default function App() {
               </p>
             </div>
             <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button onClick={() => window.print()} style={btnPrimary}>📄 Als PDF drucken</button>
+              <button onClick={handlePrint} style={btnPrimary}>📄 Als PDF drucken</button>
               <button onClick={reset} style={btnSecondary}>↻ Werte zurücksetzen</button>
               <button onClick={() => setZeigAnnahmen(!zeigAnnahmen)} style={btnSecondary}>
                 {zeigAnnahmen ? '◐ Annahmen verbergen' : '◑ Annahmen anzeigen'}
@@ -819,7 +891,7 @@ export default function App() {
           </div>
 
           {/* Angebotspaar — visuell hervorgehoben */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', padding: '20px', background: '#FCFAF6', border: '1px solid #EDE7DD', borderRadius: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '20px', padding: '20px', background: '#FCFAF6', border: '1px solid #EDE7DD', borderRadius: '8px' }}>
             <div>
               <label style={{ ...labelStyle, color: '#C0492A' }}>
                 Angebot Wettbewerb {eingabeModus === 'objekt' ? '(€/Jahr/Objekt)' : '(€/Jahr)'}
@@ -887,6 +959,90 @@ export default function App() {
           </div>
         </section>
 
+        {/* LEISTUNGSSPEKTRUM & ZERTIFIKATE WETTBEWERB */}
+        <section style={cardStyle} className="print-keep">
+          <h2 className="fraunces" style={h2Style}>Leistungsspektrum & Zertifikate des Wettbewerbs</h2>
+          <p style={{ fontSize: '14px', color: '#5A6478', marginBottom: '20px' }}>
+            Haken Sie an, was der bisherige Dienstleister tatsächlich abdeckt. Alles, was offen bleibt, muss extern oder intern kompensiert werden — und wird im PDF als Versorgungslücke ausgewiesen.
+          </p>
+
+          <h3 style={h3Style}>Dienstleistungen</h3>
+          {SERVICE_KATEGORIEN.map(kat => {
+            const items = SERVICES.filter(s => s.kategorie === kat);
+            const abgedeckt = items.filter(s => wettbewerbServices[s.id]).length;
+            return (
+              <div key={kat} style={{ marginBottom: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1A2332', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kat}</div>
+                  <div style={{ fontSize: '12px', color: '#5A6478' }}>{abgedeckt} von {items.length} abgedeckt</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                  {items.map(s => {
+                    const checked = !!wettbewerbServices[s.id];
+                    return (
+                      <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', cursor: 'pointer', fontSize: '14px' }}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleService(s.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979' }} />
+                        <span>{s.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          <h3 style={{ ...h3Style, marginTop: '24px' }}>Zertifikate</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px' }}>
+            {ZERTIFIKATE.map(z => {
+              const checked = !!wettbewerbZertifikate[z.id];
+              return (
+                <label key={z.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', cursor: 'pointer', fontSize: '14px' }}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleZert(z.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979' }} />
+                  <span>{z.label}</span>
+                </label>
+              );
+            })}
+          </div>
+
+          {/* Zusammenfassung Lücken */}
+          <div style={{ marginTop: '24px', padding: '16px 18px', background: '#FFF4ED', border: '1px solid #FFD4BB', borderRadius: '8px' }}>
+            <div style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '10px', fontWeight: 600 }}>
+              Lücken beim Wettbewerb (Jolmes deckt es ab)
+            </div>
+            {(() => {
+              const luecken = SERVICES.filter(s => !wettbewerbServices[s.id]);
+              const fehlendeZert = ZERTIFIKATE.filter(z => !wettbewerbZertifikate[z.id]);
+              if (luecken.length === 0 && fehlendeZert.length === 0) {
+                return <div style={{ fontSize: '13px', color: '#1A2332' }}>Wettbewerb deckt alle Leistungen und Zertifikate ab — Differenzierung über TCO und Service-Qualität.</div>;
+              }
+              return (
+                <>
+                  {luecken.length > 0 && (
+                    <div style={{ marginBottom: fehlendeZert.length > 0 ? '12px' : 0 }}>
+                      <div style={{ fontSize: '12px', color: '#5A6478', marginBottom: '6px' }}>Fehlende Leistungen ({luecken.length}):</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {luecken.map(s => (
+                          <span key={s.id} style={{ display: 'inline-block', padding: '4px 10px', background: 'white', border: '1px solid #FFD4BB', borderRadius: '4px', fontSize: '12px', color: '#1A2332' }}>{s.label}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {fehlendeZert.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#5A6478', marginBottom: '6px' }}>Fehlende Zertifikate ({fehlendeZert.length}):</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {fehlendeZert.map(z => (
+                          <span key={z.id} style={{ display: 'inline-block', padding: '4px 10px', background: 'white', border: '1px solid #FFD4BB', borderRadius: '4px', fontSize: '12px', color: '#1A2332' }}>{z.label}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </section>
+
         {/* HAUPTERGEBNIS */}
         <section style={{ ...cardStyle, background: 'linear-gradient(135deg, #1A2332 0%, #2D3D55 100%)', color: '#F5F1EA', position: 'relative', overflow: 'hidden' }} className="print-keep">
           <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(232,116,59,0.15) 0%, transparent 70%)' }}></div>
@@ -900,7 +1056,7 @@ export default function App() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', marginTop: '24px' }}>
             <div>
               <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', opacity: 0.7 }}>Mehrkosten / Jahr</div>
-              <div className="fraunces" style={{ fontSize: '64px', fontWeight: 800, color: '#E8743B', lineHeight: 1, marginTop: '4px' }}>
+              <div className="fraunces" style={{ fontSize: 'clamp(40px, 8vw, 64px)', fontWeight: 800, color: '#E8743B', lineHeight: 1, marginTop: '4px' }}>
                 {formatEUR(gesamtMehrkosten)}
               </div>
               <div style={{ fontSize: '13px', opacity: 0.6, marginTop: '4px' }}>
@@ -909,13 +1065,13 @@ export default function App() {
             </div>
             <div>
               <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', opacity: 0.7 }}>3-Jahres-Hochrechnung</div>
-              <div className="fraunces" style={{ fontSize: '36px', fontWeight: 600, marginTop: '4px' }}>
+              <div className="fraunces" style={{ fontSize: 'clamp(26px, 5vw, 36px)', fontWeight: 600, marginTop: '4px' }}>
                 {formatEUR(gesamtMehrkosten * 3)}
               </div>
             </div>
             <div>
               <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', opacity: 0.7 }}>5-Jahres-Hochrechnung</div>
-              <div className="fraunces" style={{ fontSize: '36px', fontWeight: 600, marginTop: '4px' }}>
+              <div className="fraunces" style={{ fontSize: 'clamp(26px, 5vw, 36px)', fontWeight: 600, marginTop: '4px' }}>
                 {formatEUR(gesamtMehrkosten * 5)}
               </div>
             </div>
@@ -1033,8 +1189,11 @@ export default function App() {
                   {gruppeCats.map(kat => (
                     <details
                       key={kat.id}
-                      open={expandedCat === kat.id}
-                      onToggle={(e) => e.target.open ? setExpandedCat(kat.id) : null}
+                      open={forceOpenAll || expandedCat === kat.id}
+                      onToggle={(e) => {
+                        if (forceOpenAll) return;
+                        if (e.target.open) setExpandedCat(kat.id);
+                      }}
                       style={{
                         background: kat.aktiv ? 'white' : '#EDE7DD',
                         border: `1px solid ${kat.aktiv ? '#D5CFC4' : '#C0B9AC'}`,
@@ -1153,11 +1312,11 @@ export default function App() {
 }
 
 // STYLES
-const cardStyle = { background: 'white', borderRadius: '12px', padding: '32px', marginBottom: '24px', boxShadow: '0 2px 8px rgba(26,35,50,0.06)' };
-const h2Style = { fontSize: '28px', fontWeight: 700, margin: '0 0 24px 0', paddingBottom: '12px', borderBottom: '1px solid #EDE7DD', letterSpacing: '-0.01em' };
+const cardStyle = { background: 'white', borderRadius: '12px', padding: 'clamp(18px, 4vw, 32px)', marginBottom: '24px', boxShadow: '0 2px 8px rgba(26,35,50,0.06)' };
+const h2Style = { fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 700, margin: '0 0 24px 0', paddingBottom: '12px', borderBottom: '1px solid #EDE7DD', letterSpacing: '-0.01em' };
 const h3Style = { fontSize: '15px', fontWeight: 600, color: '#1A2332', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' };
 const labelStyle = { display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '6px', fontWeight: 600 };
-const inputStyle = { width: '100%', padding: '10px 14px', border: '1px solid #D5CFC4', borderRadius: '6px', fontSize: '15px', background: '#FCFAF6', boxSizing: 'border-box', fontFamily: 'inherit' };
+const inputStyle = { width: '100%', padding: '10px 14px', border: '1px solid #D5CFC4', borderRadius: '6px', fontSize: '16px', background: '#FCFAF6', boxSizing: 'border-box', fontFamily: 'inherit' };
 const btnPrimary = { padding: '10px 18px', background: '#E8743B', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' };
 const btnSecondary = { padding: '10px 18px', background: 'transparent', color: '#1A2332', border: '1px solid #1A2332', borderRadius: '6px', fontWeight: 500, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' };
 const linkStyle = { color: '#1A2332', textDecoration: 'none', borderBottom: '1px dotted #5A6478', fontSize: '13px' };
