@@ -621,18 +621,18 @@ const GRUPPEN_COLORS = {
   'B-spez': '#BF399E',
 };
 
-// Vollständiges Jolmes-Leistungsportfolio (Quelle: jolmes.de). Der Wettbewerb deckt davon
-// üblicherweise nur einen Teil ab — über die Checkboxen wird das im Tool sichtbar gemacht.
+// Aktuelles Jolmes-Leistungsportfolio (Quelle: jolmes.de — jeder Eintrag entspricht
+// einer aktuell erreichbaren Leistungsseite). Der Wettbewerb deckt davon üblicherweise
+// nur einen Teil ab — über die Checkboxen wird das im Tool sichtbar gemacht.
 const SERVICES = [
   { id: 'unterhaltsreinigung', label: 'Unterhaltsreinigung', kategorie: 'Reinigung' },
-  { id: 'glasreinigung', label: 'Glasreinigung', kategorie: 'Reinigung' },
+  { id: 'glasfassadepv', label: 'Glas-, Fassaden- & Photovoltaikreinigung', kategorie: 'Reinigung' },
+  { id: 'industriereinigung', label: 'Industriereinigung', kategorie: 'Reinigung' },
   { id: 'bauschlussreinigung', label: 'Bauschluss-/Sonderreinigung', kategorie: 'Reinigung' },
   { id: 'desinfektion', label: 'Desinfektionsreinigung', kategorie: 'Reinigung' },
   { id: 'polster', label: 'Polsterreinigung', kategorie: 'Reinigung' },
-  { id: 'graffiti', label: 'Graffiti-Entfernung', kategorie: 'Reinigung' },
-  { id: 'wildkraut', label: 'Wildkraut-/Wegereinigung', kategorie: 'Reinigung' },
-  { id: 'messie', label: 'Messiewohnungen / Entrümpelung', kategorie: 'Reinigung' },
   { id: 'geruch', label: 'Geruchsneutralisation', kategorie: 'Reinigung' },
+  { id: 'messie', label: 'Messiewohnungen / Entrümpelung', kategorie: 'Reinigung' },
   { id: 'brandschaden', label: 'Brandschadensanierung', kategorie: 'Sanierung' },
   { id: 'wasserschaden', label: 'Wasserschadensanierung', kategorie: 'Sanierung' },
   { id: 'schimmel', label: 'Schimmelpilzsanierung', kategorie: 'Sanierung' },
@@ -640,23 +640,25 @@ const SERVICES = [
   { id: 'mauerwerk', label: 'Mauerwerksabdichtung', kategorie: 'Sanierung' },
   { id: 'keller', label: 'Kellerwerksabdichtung', kategorie: 'Sanierung' },
   { id: 'risse', label: 'Risssanierung', kategorie: 'Sanierung' },
+  { id: 'bodensanierung', label: 'Bodensanierung', kategorie: 'Sanierung' },
+  { id: 'bautrocknung', label: 'Bautrocknung', kategorie: 'Sanierung' },
   { id: 'maler', label: 'Malerarbeiten', kategorie: 'Handwerk' },
   { id: 'trockenbau', label: 'Trockenbau', kategorie: 'Handwerk' },
-  { id: 'bodenbeschichtung', label: 'Bodenbeschichtung (Industrie/ESD/Parkhaus)', kategorie: 'Handwerk' },
-  { id: 'sicherheit', label: 'Sicherheitsdienst / Werkschutz', kategorie: 'Personal & Sicherheit' },
-  { id: 'personal', label: 'Personalvermittlung / Zeitarbeit', kategorie: 'Personal & Sicherheit' },
+  { id: 'industriehallenbeschichtung', label: 'Industriehallenbeschichtung', kategorie: 'Handwerk' },
+  { id: 'arbeitnehmerueberlassung', label: 'Arbeitnehmerüberlassung', kategorie: 'Personal' },
+  { id: 'direktvermittlung', label: 'Direktvermittlung & Headhunting', kategorie: 'Personal' },
+  { id: 'energie', label: 'Photovoltaik & Energieoptimierung', kategorie: 'Energie' },
+  { id: 'batteriespeicher', label: 'Batteriespeicher', kategorie: 'Energie' },
 ];
 
 const ZERTIFIKATE = [
   { id: 'iso9001', label: 'DIN EN ISO 9001 (Qualität)' },
   { id: 'iso14001', label: 'DIN EN ISO 14001 (Umwelt)' },
-  { id: 'iso45001', label: 'DIN EN ISO 45001 (Arbeits- & Gesundheitsschutz)' },
   { id: 'amsbgbau', label: 'AMS BG Bau (Arbeitsschutz)' },
   { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)' },
-  { id: 'innung', label: 'Innungsmitglied / Meisterbetrieb' },
 ];
 
-const SERVICE_KATEGORIEN = ['Reinigung', 'Sanierung', 'Handwerk', 'Personal & Sicherheit'];
+const SERVICE_KATEGORIEN = ['Reinigung', 'Sanierung', 'Handwerk', 'Personal', 'Energie'];
 
 const formatEUR = (n) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const formatNum = (n) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(n);
@@ -675,7 +677,7 @@ export default function App() {
   const [expandedCat, setExpandedCat] = useState(null);
   const [forceOpenAll, setForceOpenAll] = useState(false);
   // Was kann der Wettbewerb? Default: nur Basis-Reinigung, kein Zertifikat.
-  const [wettbewerbServices, setWettbewerbServices] = useState({ unterhaltsreinigung: true, glasreinigung: true });
+  const [wettbewerbServices, setWettbewerbServices] = useState({ unterhaltsreinigung: true, glasfassadepv: true });
   const [wettbewerbZertifikate, setWettbewerbZertifikate] = useState({});
 
   useEffect(() => {
@@ -724,7 +726,7 @@ export default function App() {
     setStundensatz(BRANCHEN['industrie'].defaultStundensatz);
     setKundenname('');
     setAktiveCategories({});
-    setWettbewerbServices({ unterhaltsreinigung: true, glasreinigung: true });
+    setWettbewerbServices({ unterhaltsreinigung: true, glasfassadepv: true });
     setWettbewerbZertifikate({});
   };
 
