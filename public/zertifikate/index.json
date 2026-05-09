@@ -1,7 +1,7 @@
 {
-  "syncedAt": "2026-05-08T14:10:55.181Z",
+  "syncedAt": "2026-05-09T08:56:47.489Z",
   "sourcePage": "https://jolmes.de/zertifikate/",
-  "crawlError": "HTTP 403",
+  "crawlError": null,
   "entries": [
     {
       "id": "amsbgbau",
@@ -43,7 +43,9 @@
         "handwerk",
         "energie"
       ],
-      "downloadUrl": "https://jolmes.de/zertifikate/"
+      "downloadUrl": "zertifikate/0197080_14001.pdf",
+      "gueltigBis": null,
+      "sourceUrl": "https://jolmes.de/wp-content/uploads/2024/07/0197080_14001.pdf"
     },
     {
       "id": "iso9001",
@@ -53,7 +55,9 @@
         "handwerk",
         "energie"
       ],
-      "downloadUrl": "https://jolmes.de/zertifikate/"
+      "downloadUrl": "zertifikate/0197080_9001.pdf",
+      "gueltigBis": null,
+      "sourceUrl": "https://jolmes.de/wp-content/uploads/2024/07/0197080_9001.pdf"
     },
     {
       "id": "meister",
