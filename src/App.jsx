@@ -686,14 +686,14 @@ const SERVICE_KATEGORIEN = ['Reinigung', 'Sanierung', 'Handwerk', 'Personal', 'E
 
 const isInBranche = (s, branche) => s.branchen === null || s.branchen.includes(branche);
 
-// Vorbelegung "kundenrelevant": alle Leistungen, die zu den aktiven Gewerken
-// gehören UND für die gewählte Branche typisch sind. Wird zurückgesetzt, sobald
-// sich Branche oder Gewerke ändern — manuelle Anpassungen darüber hinaus bleiben
-// dem Vertrieb überlassen (er hakt an/ab, was der Kunde tatsächlich braucht).
-function defaultKundenrelevantFor(branche, gewerke) {
+// Vorbelegung "kundenrelevant": alle Leistungen, die für die gewählte Branche
+// typisch sind — unabhängig vom Angebots-Gewerk. Das eigentliche Preisangebot
+// betrifft ggf. nur Reinigung, der Kunde braucht aber oft auch Handwerk o.ä.
+// Genau diese Cross-Sell-Leistungen sind das Bündel-Argument bei höherem Preis.
+function defaultKundenrelevantFor(branche) {
   const result = {};
   SERVICES.forEach(s => {
-    if (gewerke.has(s.kategorie) && isInBranche(s, branche)) result[s.id] = true;
+    if (isInBranche(s, branche)) result[s.id] = true;
   });
   return result;
 }
@@ -717,16 +717,17 @@ export default function App() {
   // Was kann der Wettbewerb? Default: nur Basis-Reinigung, kein Zertifikat.
   const [wettbewerbServices, setWettbewerbServices] = useState({ unterhaltsreinigung: true, glasreinigung: true });
   const [wettbewerbZertifikate, setWettbewerbZertifikate] = useState({});
-  // Welche Jolmes-Gewerke werden in diesem Angebot abgedeckt? Mehrfachauswahl.
-  // Steuert, welche Leistungen im Wettbewerbsvergleich überhaupt angezeigt werden
-  // und welche standardmäßig als kundenrelevant vorbelegt sind.
+  // Welche Jolmes-Gewerke betrifft das konkrete Preisangebot (z.B. nur Reinigung)?
+  // Markiert Leistungen als "im Angebot" — beeinflusst aber NICHT, welche
+  // anderen Leistungen kundenrelevant sein können (Cross-Sell-Argument).
   const [aktiveGewerke, setAktiveGewerke] = useState(() => new Set(SERVICE_KATEGORIEN));
-  // Welche Leistungen braucht der Kunde tatsächlich? Diese Menge ist Nenner
-  // für die Wettbewerbs-Abdeckung und damit für die Mehrkosten-Dämpfung.
+  // Welche Leistungen braucht der Kunde tatsächlich — über das aktuelle Angebot
+  // hinaus? Diese Menge ist Nenner für die Wettbewerbs-Abdeckung und damit für
+  // die Mehrkosten-Dämpfung.
   const [kundenrelevant, setKundenrelevant] = useState(() =>
-    defaultKundenrelevantFor('industrie', new Set(SERVICE_KATEGORIEN))
+    defaultKundenrelevantFor('industrie')
   );
-  // Hybrid-Filter: standardmäßig nur Gewerke-/branchenrelevante Leistungen einblenden;
+  // Hybrid-Filter: standardmäßig nur branchenrelevante Leistungen einblenden;
   // Sales kann per Toggle alle 29 Leistungen sichtbar machen.
   const [showAllServices, setShowAllServices] = useState(false);
 
@@ -790,7 +791,6 @@ export default function App() {
     setAktiveGewerke(prev => {
       const next = new Set(prev);
       if (next.has(kat)) next.delete(kat); else next.add(kat);
-      setKundenrelevant(defaultKundenrelevantFor(branche, next));
       return next;
     });
   };
@@ -806,7 +806,7 @@ export default function App() {
     setVolumen(v);
     setJolmesAngebot(Math.round(v * 1.08));
     setStundensatz(BRANCHEN[newBranche].defaultStundensatz);
-    setKundenrelevant(defaultKundenrelevantFor(newBranche, aktiveGewerke));
+    setKundenrelevant(defaultKundenrelevantFor(newBranche));
   };
 
   const reset = () => {
@@ -822,20 +822,19 @@ export default function App() {
     setAktiveCategories({});
     setWettbewerbServices({ unterhaltsreinigung: true, glasreinigung: true });
     setWettbewerbZertifikate({});
-    const alleGewerke = new Set(SERVICE_KATEGORIEN);
-    setAktiveGewerke(alleGewerke);
-    setKundenrelevant(defaultKundenrelevantFor('industrie', alleGewerke));
+    setAktiveGewerke(new Set(SERVICE_KATEGORIEN));
+    setKundenrelevant(defaultKundenrelevantFor('industrie'));
     setShowAllServices(false);
   };
 
   // Branche-spezifische Service-Auswahl. branchen===null = universell relevant.
   const isServiceRelevant = (s) => isInBranche(s, branche);
-  const isServiceImGewerk = (s) => aktiveGewerke.has(s.kategorie);
-  // Standard-Ansicht: nur Leistungen aus den aktiven Gewerken, die zur Branche passen.
-  // "Alle anzeigen" hebt diese Filter auf, damit Sales Sonderfälle auch ankreuzen kann.
+  const isImAngebot = (s) => aktiveGewerke.has(s.kategorie);
+  // Standard-Ansicht: alle branchenrelevanten Leistungen (gewerkübergreifend) —
+  // damit Cross-Sell sichtbar bleibt. "Alle anzeigen" lockert den Branchen-Filter.
   const sichtbareServices = showAllServices
     ? SERVICES
-    : SERVICES.filter(s => isServiceImGewerk(s) && isServiceRelevant(s));
+    : SERVICES.filter(isServiceRelevant);
   const kundenrelevanteServices = SERVICES.filter(s => kundenrelevant[s.id]);
 
   const relevantCats = useMemo(() => {
@@ -996,9 +995,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* Gewerk-Auswahl: welche Jolmes-Sparten sind in diesem Angebot? */}
+          {/* Gewerk-Auswahl: welche Jolmes-Sparten betrifft dieses konkrete Angebot? */}
           <div style={{ marginBottom: '20px' }}>
-            <label style={labelStyle}>Unser Angebot — Gewerk(e)</label>
+            <label style={labelStyle}>Worüber machen wir gerade ein Angebot? (Gewerk)</label>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {SERVICE_KATEGORIEN.map(kat => {
                 const aktiv = aktiveGewerke.has(kat);
@@ -1024,9 +1023,7 @@ export default function App() {
               })}
             </div>
             <div style={{ marginTop: '8px', fontSize: '12px', color: '#5A6478' }}>
-              {aktiveGewerke.size === 0
-                ? '⚠ Mindestens ein Gewerk auswählen, sonst keine Leistungen im Vergleich.'
-                : `${aktiveGewerke.size} von ${SERVICE_KATEGORIEN.length} Gewerken aktiv — Kundenrelevanz wird beim Wechsel neu vorbelegt.`}
+              Markiert die Leistungen, die im aktuellen Preisangebot enthalten sind. Kundenrelevante Leistungen aus anderen Gewerken bleiben weiterhin im Vergleich — als Cross-Sell-/Bündel-Argument bei höherem Preis.
             </div>
           </div>
 
@@ -1141,7 +1138,7 @@ export default function App() {
         <section style={cardStyle} className="print-keep">
           <h2 className="fraunces" style={h2Style}>Leistungsspektrum & Zertifikate des Wettbewerbs</h2>
           <p style={{ fontSize: '14px', color: '#5A6478', marginBottom: '20px' }}>
-            Pro Leistung zwei Häkchen: <strong>Kundenbedarf</strong> = der Kunde braucht das in diesem Angebot. <strong>Wettbewerb</strong> = der bisherige Dienstleister deckt es ab. Die Mehrkosten-Dämpfung berechnet sich aus dem Verhältnis abgedeckter zu kundenrelevanten Leistungen.
+            Pro Leistung zwei Häkchen: <strong>Kunde</strong> = der Kunde braucht das (auch außerhalb unseres aktuellen Angebot-Gewerks — das ist der Bündel-Vorteil). <strong>Wettb.</strong> = der bisherige Dienstleister deckt es ab. Leistungen, die zum aktuellen Angebot gehören, tragen ein <strong>Angebot</strong>-Badge.
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
@@ -1150,13 +1147,13 @@ export default function App() {
               <span style={{ fontSize: '12px', color: '#5A6478' }}>
                 {showAllServices
                   ? `Alle ${SERVICES.length} Jolmes-Leistungen`
-                  : `${sichtbareServices.length} von ${SERVICES.length} (Gewerk × ${BRANCHEN[branche].label})`}
+                  : `${sichtbareServices.length} von ${SERVICES.length} (${BRANCHEN[branche].label})`}
               </span>
               <button
                 onClick={() => setShowAllServices(v => !v)}
                 style={{ ...btnSecondary, padding: '6px 12px', fontSize: '12px' }}
               >
-                {showAllServices ? '← Nur Gewerk-/branchenrelevante' : 'Alle Leistungen anzeigen →'}
+                {showAllServices ? '← Nur branchenrelevante' : 'Alle Leistungen anzeigen →'}
               </button>
             </div>
           </div>
@@ -1176,7 +1173,7 @@ export default function App() {
                     const kunde = !!kundenrelevant[s.id];
                     const wettb = !!wettbewerbServices[s.id];
                     const branchenfremd = !isServiceRelevant(s);
-                    const gewerkfremd = !isServiceImGewerk(s);
+                    const imAngebot = isImAngebot(s);
                     return (
                       <div
                         key={s.id}
@@ -1194,9 +1191,14 @@ export default function App() {
                       >
                         <span style={{ flex: 1, fontWeight: kunde ? 500 : 400 }}>{s.label}</span>
                         <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
-                          {(branchenfremd || gewerkfremd) && (
-                            <span style={{ fontSize: '10px', color: '#9A9485', textTransform: 'uppercase', letterSpacing: '0.05em' }} title={gewerkfremd ? 'liegt außerhalb der aktiven Gewerke' : 'für die gewählte Branche untypisch'}>
-                              {gewerkfremd ? 'extra-Gewerk' : 'extra'}
+                          {imAngebot && (
+                            <span title="Teil des aktuellen Preisangebots" style={{ fontSize: '10px', padding: '2px 6px', background: '#E8743B', color: 'white', borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                              Angebot
+                            </span>
+                          )}
+                          {branchenfremd && (
+                            <span style={{ fontSize: '10px', color: '#9A9485', textTransform: 'uppercase', letterSpacing: '0.05em' }} title="für die gewählte Branche untypisch">
+                              extra
                             </span>
                           )}
                           <label title="Kunde braucht diese Leistung" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', border: `1px solid ${kunde ? '#1A2332' : '#D5CFC4'}`, borderRadius: '4px', background: kunde ? '#1A2332' : 'white', color: kunde ? '#F5F1EA' : '#5A6478', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>
@@ -1267,26 +1269,37 @@ export default function App() {
             })}
           </div>
 
-          {/* Zusammenfassung Lücken — auf kundenrelevante Leistungen beschränkt */}
+          {/* Zusammenfassung Lücken — getrennt nach Angebots-Scope und Cross-Sell */}
           <div style={{ marginTop: '24px', padding: '16px 18px', background: '#FFF4ED', border: '1px solid #FFD4BB', borderRadius: '8px' }}>
             <div style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '10px', fontWeight: 600 }}>
               Lücken beim Wettbewerb (Jolmes deckt es ab) — {BRANCHEN[branche].label}
             </div>
             {(() => {
               const luecken = kundenrelevanteServices.filter(s => !wettbewerbServices[s.id]);
+              const luckenImAngebot = luecken.filter(isImAngebot);
+              const luckenCrossSell = luecken.filter(s => !isImAngebot(s));
               const fehlendeZert = aktiveZertifikate.filter(z => !wettbewerbZertifikate[z.id]);
               if (luecken.length === 0 && fehlendeZert.length === 0) {
                 return <div style={{ fontSize: '13px', color: '#1A2332' }}>Wettbewerb deckt alle kundenrelevanten Leistungen und Zertifikate ab — Differenzierung über TCO und Service-Qualität.</div>;
               }
+              const Chip = ({ label, accent }) => (
+                <span style={{ display: 'inline-block', padding: '4px 10px', background: 'white', border: `1px solid ${accent}`, borderRadius: '4px', fontSize: '12px', color: '#1A2332' }}>{label}</span>
+              );
               return (
                 <>
-                  {luecken.length > 0 && (
-                    <div style={{ marginBottom: fehlendeZert.length > 0 ? '12px' : 0 }}>
-                      <div style={{ fontSize: '12px', color: '#5A6478', marginBottom: '6px' }}>Fehlende Leistungen ({luecken.length}):</div>
+                  {luckenImAngebot.length > 0 && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '12px', color: '#5A6478', marginBottom: '6px' }}>Direkt im aktuellen Angebot fehlend ({luckenImAngebot.length}):</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {luecken.map(s => (
-                          <span key={s.id} style={{ display: 'inline-block', padding: '4px 10px', background: 'white', border: '1px solid #FFD4BB', borderRadius: '4px', fontSize: '12px', color: '#1A2332' }}>{s.label}</span>
-                        ))}
+                        {luckenImAngebot.map(s => <Chip key={s.id} label={s.label} accent="#E8743B" />)}
+                      </div>
+                    </div>
+                  )}
+                  {luckenCrossSell.length > 0 && (
+                    <div style={{ marginBottom: fehlendeZert.length > 0 ? '12px' : 0 }}>
+                      <div style={{ fontSize: '12px', color: '#5A6478', marginBottom: '6px' }}>Cross-Sell / Bündel-Argument — kundenrelevant außerhalb des Angebot-Gewerks ({luckenCrossSell.length}):</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {luckenCrossSell.map(s => <Chip key={s.id} label={s.label} accent="#FFD4BB" />)}
                       </div>
                     </div>
                   )}
@@ -1294,9 +1307,7 @@ export default function App() {
                     <div>
                       <div style={{ fontSize: '12px', color: '#5A6478', marginBottom: '6px' }}>Fehlende Zertifikate ({fehlendeZert.length}):</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {fehlendeZert.map(z => (
-                          <span key={z.id} style={{ display: 'inline-block', padding: '4px 10px', background: 'white', border: '1px solid #FFD4BB', borderRadius: '4px', fontSize: '12px', color: '#1A2332' }}>{z.label}</span>
-                        ))}
+                        {fehlendeZert.map(z => <Chip key={z.id} label={z.label} accent="#FFD4BB" />)}
                       </div>
                     </div>
                   )}
