@@ -1168,7 +1168,7 @@ export default function App() {
                   <div style={{ fontSize: '13px', fontWeight: 600, color: '#1A2332', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kat}</div>
                   <div style={{ fontSize: '12px', color: '#5A6478' }}>{kundenZahl} kundenrelevant · {abgedeckt} davon vom Wettbewerb abgedeckt</div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '10px' }}>
                   {items.map(s => {
                     const kunde = !!kundenrelevant[s.id];
                     const wettb = !!wettbewerbServices[s.id];
@@ -1178,36 +1178,39 @@ export default function App() {
                       <div
                         key={s.id}
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '10px 12px',
-                          border: `1px solid ${kunde ? '#1A2332' : '#D5CFC4'}`,
+                          padding: '12px 14px',
+                          border: `1px solid ${kunde ? '#C9C2B5' : '#E5DFD3'}`,
+                          borderLeft: `3px solid ${imAngebot ? '#E8743B' : kunde ? '#1A2332' : 'transparent'}`,
                           borderRadius: '6px',
-                          background: kunde ? '#FCFAF6' : '#F5F1EA',
+                          background: kunde ? 'white' : '#FAF6EE',
                           fontSize: '14px',
-                          opacity: kunde ? 1 : 0.65,
                         }}
                       >
-                        <span style={{ flex: 1, fontWeight: kunde ? 500 : 400 }}>{s.label}</span>
-                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
-                          {imAngebot && (
-                            <span title="Teil des aktuellen Preisangebots" style={{ fontSize: '10px', padding: '2px 6px', background: '#E8743B', color: 'white', borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                              Angebot
-                            </span>
-                          )}
-                          {branchenfremd && (
-                            <span style={{ fontSize: '10px', color: '#9A9485', textTransform: 'uppercase', letterSpacing: '0.05em' }} title="für die gewählte Branche untypisch">
-                              extra
-                            </span>
-                          )}
-                          <label title="Kunde braucht diese Leistung" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', border: `1px solid ${kunde ? '#1A2332' : '#D5CFC4'}`, borderRadius: '4px', background: kunde ? '#1A2332' : 'white', color: kunde ? '#F5F1EA' : '#5A6478', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>
-                            <input type="checkbox" checked={kunde} onChange={() => toggleKundenrelevant(s.id)} style={{ width: '13px', height: '13px', cursor: 'pointer', margin: 0 }} />
-                            Kunde
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '10px', minHeight: '20px' }}>
+                          <span style={{ flex: 1, fontWeight: kunde ? 500 : 400, color: kunde ? '#1A2332' : '#5A6478', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                            {s.label}
+                          </span>
+                          <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+                            {imAngebot && (
+                              <span title="Teil des aktuellen Preisangebots" style={{ fontSize: '9px', padding: '2px 6px', background: '#E8743B', color: 'white', borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                Angebot
+                              </span>
+                            )}
+                            {branchenfremd && (
+                              <span title="für die gewählte Branche untypisch" style={{ fontSize: '9px', padding: '2px 6px', background: '#EDE7DD', color: '#9A9485', borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                extra
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px', paddingTop: '8px', borderTop: '1px solid #EDE7DD' }}>
+                          <label title="Kunde braucht diese Leistung" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: kunde ? '#1A2332' : '#9A9485', fontWeight: kunde ? 600 : 500, flex: 1 }}>
+                            <input type="checkbox" checked={kunde} onChange={() => toggleKundenrelevant(s.id)} style={{ width: '15px', height: '15px', cursor: 'pointer', margin: 0, accentColor: '#1A2332' }} />
+                            Kunde braucht
                           </label>
-                          <label title="Wettbewerb deckt diese Leistung ab" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', border: `1px solid ${wettb ? '#19A979' : '#D5CFC4'}`, borderRadius: '4px', background: wettb ? '#EDF9F3' : 'white', color: wettb ? '#19A979' : '#5A6478', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>
-                            <input type="checkbox" checked={wettb} onChange={() => toggleService(s.id)} style={{ width: '13px', height: '13px', cursor: 'pointer', margin: 0, accentColor: '#19A979' }} />
-                            Wettb.
+                          <label title="Wettbewerb deckt diese Leistung ab" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: wettb ? '#19A979' : '#9A9485', fontWeight: wettb ? 600 : 500, flex: 1 }}>
+                            <input type="checkbox" checked={wettb} onChange={() => toggleService(s.id)} style={{ width: '15px', height: '15px', cursor: 'pointer', margin: 0, accentColor: '#19A979' }} />
+                            Wettbewerb kann
                           </label>
                         </div>
                       </div>
