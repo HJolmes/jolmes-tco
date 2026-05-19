@@ -672,14 +672,18 @@ const FIRMEN = [
 ];
 
 const JOLMES_CERT_PAGE = 'https://jolmes.de/zertifikate/';
+// `firmen` = offiziell zertifiziert / Mitgliedschaft / Befähigungsschein.
+// `nachKonformitaet` = arbeitet nach der Norm, ist dort aber nicht zertifiziert.
+// Beispiel: Jolmes Handwerk arbeitet nach ISO 9001/14001, hat aber kein
+// eigenes Zertifikat — kommunizieren wir transparent und ohne falsche Behauptung.
 const ZERTIFIKATE = [
-  { id: 'iso9001',    label: 'DIN EN ISO 9001 (Qualität)',                 firmen: ['gebaeudereinigung', 'handwerk', 'energie'], downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'iso14001',   label: 'DIN EN ISO 14001 (Umwelt)',                  firmen: ['gebaeudereinigung', 'handwerk', 'energie'], downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'amsbgbau',   label: 'AMS BG Bau (Arbeitsschutz)',                 firmen: ['gebaeudereinigung'],                       downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)',           firmen: ['handwerk'],                                downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'innung',     label: 'Innungsmitglied (Gebäudereiniger-Innung)',   firmen: ['gebaeudereinigung'],                       downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'meister',    label: 'Meisterbetrieb',                             firmen: ['gebaeudereinigung', 'handwerk'],           downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'asbest',     label: 'TRGS 519 / Asbest-Sachkunde',                firmen: ['handwerk'],                                downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'iso9001',    label: 'DIN EN ISO 9001 (Qualität)',                 firmen: ['gebaeudereinigung'], nachKonformitaet: ['handwerk'], downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'iso14001',   label: 'DIN EN ISO 14001 (Umwelt)',                  firmen: ['gebaeudereinigung'], nachKonformitaet: ['handwerk'], downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'amsbgbau',   label: 'AMS BG Bau (Arbeitsschutz)',                 firmen: ['gebaeudereinigung'],                                 downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)',           firmen: ['handwerk'],                                          downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'innung',     label: 'Innungsmitglied (Gebäudereiniger-Innung)',   firmen: ['gebaeudereinigung'],                                 downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'meister',    label: 'Meisterbetrieb',                             firmen: ['gebaeudereinigung', 'handwerk'],                     downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'asbest',     label: 'TRGS 519 / Asbest-Sachkunde',                firmen: ['handwerk'],                                          downloadUrl: JOLMES_CERT_PAGE },
 ];
 
 const SERVICE_KATEGORIEN = ['Reinigung', 'Sanierung', 'Handwerk', 'Personal', 'Energie'];
@@ -871,7 +875,8 @@ export default function App() {
   // Asbest/TRGS 519 automatisch, sobald der Kunde keine Handwerks-/Sanierungs-
   // leistungen braucht.
   const istZertRelevant = (z) => {
-    const cats = (z.firmen || []).flatMap(f => FIRMA_TO_KATEGORIEN[f] || []);
+    const cats = [...(z.firmen || []), ...(z.nachKonformitaet || [])]
+      .flatMap(f => FIRMA_TO_KATEGORIEN[f] || []);
     if (cats.length === 0) return true;
     return SERVICES.some(s => kundenrelevant[s.id] && cats.includes(s.kategorie));
   };
@@ -1287,12 +1292,17 @@ export default function App() {
                       </span>
                     )}
                   </div>
-                  {(z.firmen?.length || status) && (
+                  {(z.firmen?.length || z.nachKonformitaet?.length || status) && (
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '10px' }}>
                       {(z.firmen || []).map(fid => {
                         const firma = FIRMEN.find(f => f.id === fid);
                         if (!firma) return null;
-                        return <span key={fid} style={{ fontSize: '9px', padding: '2px 6px', background: '#1A2332', color: '#F5F1EA', borderRadius: '3px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>{firma.label}</span>;
+                        return <span key={fid} title="Offiziell zertifiziert" style={{ fontSize: '9px', padding: '2px 6px', background: '#1A2332', color: '#F5F1EA', borderRadius: '3px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>{firma.label}</span>;
+                      })}
+                      {(z.nachKonformitaet || []).map(fid => {
+                        const firma = FIRMEN.find(f => f.id === fid);
+                        if (!firma) return null;
+                        return <span key={`k-${fid}`} title="Arbeitet nach der Norm, ist dort aber nicht zertifiziert" style={{ fontSize: '9px', padding: '2px 6px', background: 'white', color: '#5A6478', border: '1px dashed #B5AE9F', borderRadius: '3px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>{firma.label} · nach Norm</span>;
                       })}
                       {status && (
                         <span style={{ fontSize: '9px', padding: '2px 6px', background: status.bg, color: status.color, borderRadius: '3px', letterSpacing: '0.04em', fontWeight: 700, textTransform: 'uppercase' }}>
