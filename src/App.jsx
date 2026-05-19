@@ -672,17 +672,30 @@ const FIRMEN = [
 ];
 
 const JOLMES_CERT_PAGE = 'https://jolmes.de/zertifikate/';
+// `firmen` = offiziell zertifiziert / Mitgliedschaft / Befähigungsschein.
+// `nachKonformitaet` = arbeitet nach der Norm, ist dort aber nicht zertifiziert.
+// Beispiel: Jolmes Handwerk arbeitet nach ISO 9001/14001, hat aber kein
+// eigenes Zertifikat — kommunizieren wir transparent und ohne falsche Behauptung.
 const ZERTIFIKATE = [
-  { id: 'iso9001',    label: 'DIN EN ISO 9001 (Qualität)',                 firmen: ['gebaeudereinigung', 'handwerk', 'energie'], downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'iso14001',   label: 'DIN EN ISO 14001 (Umwelt)',                  firmen: ['gebaeudereinigung', 'handwerk', 'energie'], downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'amsbgbau',   label: 'AMS BG Bau (Arbeitsschutz)',                 firmen: ['gebaeudereinigung'],                       downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)',           firmen: ['handwerk'],                                downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'innung',     label: 'Innungsmitglied (Gebäudereiniger-Innung)',   firmen: ['gebaeudereinigung'],                       downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'meister',    label: 'Meisterbetrieb',                             firmen: ['gebaeudereinigung', 'handwerk'],           downloadUrl: JOLMES_CERT_PAGE },
-  { id: 'asbest',     label: 'TRGS 519 / Asbest-Sachkunde',                firmen: ['handwerk'],                                downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'iso9001',    label: 'DIN EN ISO 9001 (Qualität)',                 firmen: ['gebaeudereinigung'], nachKonformitaet: ['handwerk'], downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'iso14001',   label: 'DIN EN ISO 14001 (Umwelt)',                  firmen: ['gebaeudereinigung'], nachKonformitaet: ['handwerk'], downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'amsbgbau',   label: 'AMS BG Bau (Arbeitsschutz)',                 firmen: ['gebaeudereinigung'],                                 downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'dguv201028', label: 'DGUV 201-028 (Schimmelsanierung)',           firmen: ['handwerk'],                                          downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'innung',     label: 'Innungsmitglied (Gebäudereiniger-Innung)',   firmen: ['gebaeudereinigung'],                                 downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'meister',    label: 'Meisterbetrieb',                             firmen: ['gebaeudereinigung', 'handwerk'],                     downloadUrl: JOLMES_CERT_PAGE },
+  { id: 'asbest',     label: 'TRGS 519 / Asbest-Sachkunde',                firmen: ['handwerk'],                                          downloadUrl: JOLMES_CERT_PAGE },
 ];
 
 const SERVICE_KATEGORIEN = ['Reinigung', 'Sanierung', 'Handwerk', 'Personal', 'Energie'];
+
+// Welche Service-Kategorien deckt eine Jolmes-Firma ab? Damit lässt sich aus
+// der Kundenrelevanz einer Leistung automatisch ableiten, welche Zertifikate
+// im Vergleich überhaupt zählen — der Vertrieb hakt nichts doppelt an.
+const FIRMA_TO_KATEGORIEN = {
+  gebaeudereinigung: ['Reinigung'],
+  handwerk: ['Sanierung', 'Handwerk'],
+  energie: ['Personal', 'Energie'],
+};
 
 const isInBranche = (s, branche) => s.branchen === null || s.branchen.includes(branche);
 
@@ -857,18 +870,31 @@ export default function App() {
   // Leistungen / Zertifikate wie Jolmes anbietet, fallen die entsprechenden
   // Risiko-/Konsolidierungskosten weg. Ohne diese Dämpfung würde das Tool auch
   // dann hohe Einsparungen ausweisen, wenn der Wettbewerb fachlich gleichwertig ist.
+  // Ein Zertifikat zählt im Vergleich nur, wenn mindestens eine Leistung aus
+  // dem Geltungsbereich seiner Firma(en) kundenrelevant ist. So entfallen z.B.
+  // Asbest/TRGS 519 automatisch, sobald der Kunde keine Handwerks-/Sanierungs-
+  // leistungen braucht.
+  const istZertRelevant = (z) => {
+    const cats = [...(z.firmen || []), ...(z.nachKonformitaet || [])]
+      .flatMap(f => FIRMA_TO_KATEGORIEN[f] || []);
+    if (cats.length === 0) return true;
+    return SERVICES.some(s => kundenrelevant[s.id] && cats.includes(s.kategorie));
+  };
+
   const wettbewerbCoverage = useMemo(() => {
     const relIds = SERVICES.filter(s => kundenrelevant[s.id]).map(s => s.id);
     const totalSrv = relIds.length || 1;
     const checkedSrv = relIds.filter(id => wettbewerbServices[id]).length;
-    const totalCert = aktiveZertifikate.length || 1;
-    const checkedCert = aktiveZertifikate.filter(z => wettbewerbZertifikate[z.id]).length;
+    const relevanteZerts = aktiveZertifikate.filter(istZertRelevant);
+    const totalCert = relevanteZerts.length || 1;
+    const checkedCert = relevanteZerts.filter(z => wettbewerbZertifikate[z.id]).length;
     const service = checkedSrv / totalSrv;
     const cert = checkedCert / totalCert;
     return {
       service, cert, overall: (service + cert) / 2,
       checkedSrv, totalSrv, checkedCert, totalCert,
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wettbewerbServices, wettbewerbZertifikate, kundenrelevant, aktiveZertifikate]);
 
   // multGroup → welcher Coverage-Anteil dämpft diese Kostengruppe?
@@ -1229,41 +1255,70 @@ export default function App() {
               </span>
             )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
             {aktiveZertifikate.map(z => {
               const checked = !!wettbewerbZertifikate[z.id];
+              const relevant = istZertRelevant(z);
               const url = resolveCertUrl(z.downloadUrl);
               const isPdf = url && /\.pdf(\?|#|$)/i.test(url);
               const linkLabel = isPdf ? '↓ PDF' : '↗ Ansehen';
               const status = certStatus(z.gueltigBis);
               return (
-                <div key={z.id} style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', fontSize: '14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', minWidth: 0 }}>
-                      <input type="checkbox" checked={checked} onChange={() => toggleZert(z.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979', flexShrink: 0 }} />
-                      <span style={{ minWidth: 0, fontWeight: 500 }}>{z.label}</span>
-                    </label>
+                <div
+                  key={z.id}
+                  style={{
+                    padding: '12px 14px',
+                    border: '1px solid #E5DFD3',
+                    borderLeft: `3px solid ${relevant && checked ? '#19A979' : 'transparent'}`,
+                    borderRadius: '6px',
+                    background: relevant ? 'white' : '#FAF6EE',
+                    fontSize: '14px',
+                    opacity: relevant ? 1 : 0.6,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px', minHeight: '20px' }}>
+                    <span style={{ flex: 1, fontWeight: 500, color: '#1A2332', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                      {z.label}
+                    </span>
                     {url ? (
                       <a href={url} target="_blank" rel="noopener noreferrer" {...(isPdf ? { download: true } : {})}
-                         style={{ fontSize: '12px', color: '#E8743B', textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 600, padding: '4px 8px', border: '1px solid #FFD4BB', borderRadius: '4px', background: 'white' }}>
+                         style={{ fontSize: '11px', color: '#E8743B', textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 600, padding: '2px 8px', border: '1px solid #FFD4BB', borderRadius: '3px', background: 'white', flexShrink: 0 }}>
                         {linkLabel}
                       </a>
                     ) : (
                       <span title="Zertifikat-PDF unter public/zertifikate/ hinterlegen oder Sync-Workflow ausführen"
-                            style={{ fontSize: '11px', color: '#9A9485', whiteSpace: 'nowrap', fontStyle: 'italic' }}>
+                            style={{ fontSize: '10px', color: '#9A9485', whiteSpace: 'nowrap', fontStyle: 'italic', flexShrink: 0 }}>
                         PDF folgt
                       </span>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {(z.firmen || []).map(fid => {
-                      const firma = FIRMEN.find(f => f.id === fid);
-                      if (!firma) return null;
-                      return <span key={fid} style={{ fontSize: '10px', padding: '2px 8px', background: '#1A2332', color: '#F5F1EA', borderRadius: '3px', letterSpacing: '0.02em' }}>{firma.label}</span>;
-                    })}
-                    {status && (
-                      <span style={{ fontSize: '10px', padding: '2px 8px', background: status.bg, color: status.color, borderRadius: '3px', letterSpacing: '0.02em', fontWeight: 600 }}>
-                        {status.label}
+                  {(z.firmen?.length || z.nachKonformitaet?.length || status) && (
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '10px' }}>
+                      {(z.firmen || []).map(fid => {
+                        const firma = FIRMEN.find(f => f.id === fid);
+                        if (!firma) return null;
+                        return <span key={fid} title="Offiziell zertifiziert" style={{ fontSize: '9px', padding: '2px 6px', background: '#1A2332', color: '#F5F1EA', borderRadius: '3px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>{firma.label}</span>;
+                      })}
+                      {(z.nachKonformitaet || []).map(fid => {
+                        const firma = FIRMEN.find(f => f.id === fid);
+                        if (!firma) return null;
+                        return <span key={`k-${fid}`} title="Arbeitet nach der Norm, ist dort aber nicht zertifiziert" style={{ fontSize: '9px', padding: '2px 6px', background: 'white', color: '#5A6478', border: '1px dashed #B5AE9F', borderRadius: '3px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>{firma.label} · nach Norm</span>;
+                      })}
+                      {status && (
+                        <span style={{ fontSize: '9px', padding: '2px 6px', background: status.bg, color: status.color, borderRadius: '3px', letterSpacing: '0.04em', fontWeight: 700, textTransform: 'uppercase' }}>
+                          {status.label}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ paddingTop: '8px', borderTop: '1px solid #EDE7DD', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                    <label title={relevant ? 'Wettbewerb hat dieses Zertifikat' : 'Aktuell keine kundenrelevante Leistung im Geltungsbereich — Zertifikat fließt nicht in die Coverage ein.'} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: relevant ? 'pointer' : 'not-allowed', fontSize: '12px', color: checked && relevant ? '#19A979' : '#9A9485', fontWeight: checked && relevant ? 600 : 500 }}>
+                      <input type="checkbox" checked={checked} disabled={!relevant} onChange={() => toggleZert(z.id)} style={{ width: '15px', height: '15px', cursor: relevant ? 'pointer' : 'not-allowed', margin: 0, accentColor: '#19A979' }} />
+                      Wettbewerb hat dieses Zertifikat
+                    </label>
+                    {!relevant && (
+                      <span title="Wird relevant, sobald eine Leistung aus dem Geltungsbereich der Firma als kundenrelevant markiert ist" style={{ fontSize: '9px', padding: '2px 6px', background: '#EDE7DD', color: '#9A9485', borderRadius: '3px', letterSpacing: '0.05em', fontWeight: 600, textTransform: 'uppercase' }}>
+                        nicht im Scope
                       </span>
                     )}
                   </div>
@@ -1281,7 +1336,7 @@ export default function App() {
               const luecken = kundenrelevanteServices.filter(s => !wettbewerbServices[s.id]);
               const luckenImAngebot = luecken.filter(isImAngebot);
               const luckenCrossSell = luecken.filter(s => !isImAngebot(s));
-              const fehlendeZert = aktiveZertifikate.filter(z => !wettbewerbZertifikate[z.id]);
+              const fehlendeZert = aktiveZertifikate.filter(z => istZertRelevant(z) && !wettbewerbZertifikate[z.id]);
               if (luecken.length === 0 && fehlendeZert.length === 0) {
                 return <div style={{ fontSize: '13px', color: '#1A2332' }}>Wettbewerb deckt alle kundenrelevanten Leistungen und Zertifikate ab — Differenzierung über TCO und Service-Qualität.</div>;
               }
