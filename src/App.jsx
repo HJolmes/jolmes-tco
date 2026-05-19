@@ -684,6 +684,20 @@ const ZERTIFIKATE = [
 
 const SERVICE_KATEGORIEN = ['Reinigung', 'Sanierung', 'Handwerk', 'Personal', 'Energie'];
 
+const isInBranche = (s, branche) => s.branchen === null || s.branchen.includes(branche);
+
+// Vorbelegung "kundenrelevant": alle Leistungen, die zu den aktiven Gewerken
+// gehören UND für die gewählte Branche typisch sind. Wird zurückgesetzt, sobald
+// sich Branche oder Gewerke ändern — manuelle Anpassungen darüber hinaus bleiben
+// dem Vertrieb überlassen (er hakt an/ab, was der Kunde tatsächlich braucht).
+function defaultKundenrelevantFor(branche, gewerke) {
+  const result = {};
+  SERVICES.forEach(s => {
+    if (gewerke.has(s.kategorie) && isInBranche(s, branche)) result[s.id] = true;
+  });
+  return result;
+}
+
 const formatEUR = (n) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const formatNum = (n) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(n);
 
@@ -703,7 +717,16 @@ export default function App() {
   // Was kann der Wettbewerb? Default: nur Basis-Reinigung, kein Zertifikat.
   const [wettbewerbServices, setWettbewerbServices] = useState({ unterhaltsreinigung: true, glasreinigung: true });
   const [wettbewerbZertifikate, setWettbewerbZertifikate] = useState({});
-  // Hybrid-Filter: standardmäßig nur Branchen-relevante Jolmes-Leistungen einblenden;
+  // Welche Jolmes-Gewerke werden in diesem Angebot abgedeckt? Mehrfachauswahl.
+  // Steuert, welche Leistungen im Wettbewerbsvergleich überhaupt angezeigt werden
+  // und welche standardmäßig als kundenrelevant vorbelegt sind.
+  const [aktiveGewerke, setAktiveGewerke] = useState(() => new Set(SERVICE_KATEGORIEN));
+  // Welche Leistungen braucht der Kunde tatsächlich? Diese Menge ist Nenner
+  // für die Wettbewerbs-Abdeckung und damit für die Mehrkosten-Dämpfung.
+  const [kundenrelevant, setKundenrelevant] = useState(() =>
+    defaultKundenrelevantFor('industrie', new Set(SERVICE_KATEGORIEN))
+  );
+  // Hybrid-Filter: standardmäßig nur Gewerke-/branchenrelevante Leistungen einblenden;
   // Sales kann per Toggle alle 29 Leistungen sichtbar machen.
   const [showAllServices, setShowAllServices] = useState(false);
 
@@ -762,6 +785,15 @@ export default function App() {
 
   const toggleService = (id) => setWettbewerbServices(s => ({ ...s, [id]: !s[id] }));
   const toggleZert = (id) => setWettbewerbZertifikate(z => ({ ...z, [id]: !z[id] }));
+  const toggleKundenrelevant = (id) => setKundenrelevant(k => ({ ...k, [id]: !k[id] }));
+  const toggleGewerk = (kat) => {
+    setAktiveGewerke(prev => {
+      const next = new Set(prev);
+      if (next.has(kat)) next.delete(kat); else next.add(kat);
+      setKundenrelevant(defaultKundenrelevantFor(branche, next));
+      return next;
+    });
+  };
 
   // Effektive Jahressummen je nach Modus
   const volumenWettbewerb = eingabeModus === 'objekt' ? volumen * objekte : volumen;
@@ -774,6 +806,7 @@ export default function App() {
     setVolumen(v);
     setJolmesAngebot(Math.round(v * 1.08));
     setStundensatz(BRANCHEN[newBranche].defaultStundensatz);
+    setKundenrelevant(defaultKundenrelevantFor(newBranche, aktiveGewerke));
   };
 
   const reset = () => {
@@ -789,13 +822,21 @@ export default function App() {
     setAktiveCategories({});
     setWettbewerbServices({ unterhaltsreinigung: true, glasreinigung: true });
     setWettbewerbZertifikate({});
+    const alleGewerke = new Set(SERVICE_KATEGORIEN);
+    setAktiveGewerke(alleGewerke);
+    setKundenrelevant(defaultKundenrelevantFor('industrie', alleGewerke));
     setShowAllServices(false);
   };
 
   // Branche-spezifische Service-Auswahl. branchen===null = universell relevant.
-  const isServiceRelevant = (s) => s.branchen === null || s.branchen.includes(branche);
-  const sichtbareServices = showAllServices ? SERVICES : SERVICES.filter(isServiceRelevant);
-  const branchenrelevanteServices = SERVICES.filter(isServiceRelevant);
+  const isServiceRelevant = (s) => isInBranche(s, branche);
+  const isServiceImGewerk = (s) => aktiveGewerke.has(s.kategorie);
+  // Standard-Ansicht: nur Leistungen aus den aktiven Gewerken, die zur Branche passen.
+  // "Alle anzeigen" hebt diese Filter auf, damit Sales Sonderfälle auch ankreuzen kann.
+  const sichtbareServices = showAllServices
+    ? SERVICES
+    : SERVICES.filter(s => isServiceImGewerk(s) && isServiceRelevant(s));
+  const kundenrelevanteServices = SERVICES.filter(s => kundenrelevant[s.id]);
 
   const relevantCats = useMemo(() => {
     return KATEGORIEN.filter(k => !k.branchen || k.branchen.includes(branche));
@@ -818,7 +859,7 @@ export default function App() {
   // Risiko-/Konsolidierungskosten weg. Ohne diese Dämpfung würde das Tool auch
   // dann hohe Einsparungen ausweisen, wenn der Wettbewerb fachlich gleichwertig ist.
   const wettbewerbCoverage = useMemo(() => {
-    const relIds = branchenrelevanteServices.map(s => s.id);
+    const relIds = SERVICES.filter(s => kundenrelevant[s.id]).map(s => s.id);
     const totalSrv = relIds.length || 1;
     const checkedSrv = relIds.filter(id => wettbewerbServices[id]).length;
     const totalCert = aktiveZertifikate.length || 1;
@@ -829,7 +870,7 @@ export default function App() {
       service, cert, overall: (service + cert) / 2,
       checkedSrv, totalSrv, checkedCert, totalCert,
     };
-  }, [wettbewerbServices, wettbewerbZertifikate, branchenrelevanteServices, aktiveZertifikate]);
+  }, [wettbewerbServices, wettbewerbZertifikate, kundenrelevant, aktiveZertifikate]);
 
   // multGroup → welcher Coverage-Anteil dämpft diese Kostengruppe?
   function coverageFactor(kat) {
@@ -955,6 +996,40 @@ export default function App() {
             </div>
           </div>
 
+          {/* Gewerk-Auswahl: welche Jolmes-Sparten sind in diesem Angebot? */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={labelStyle}>Unser Angebot — Gewerk(e)</label>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {SERVICE_KATEGORIEN.map(kat => {
+                const aktiv = aktiveGewerke.has(kat);
+                return (
+                  <button
+                    key={kat}
+                    onClick={() => toggleGewerk(kat)}
+                    style={{
+                      padding: '8px 14px',
+                      background: aktiv ? '#1A2332' : 'white',
+                      color: aktiv ? '#F5F1EA' : '#1A2332',
+                      border: `1px solid ${aktiv ? '#1A2332' : '#D5CFC4'}`,
+                      borderRadius: '20px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {aktiv ? '✓ ' : ''}{kat}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '12px', color: '#5A6478' }}>
+              {aktiveGewerke.size === 0
+                ? '⚠ Mindestens ein Gewerk auswählen, sonst keine Leistungen im Vergleich.'
+                : `${aktiveGewerke.size} von ${SERVICE_KATEGORIEN.length} Gewerken aktiv — Kundenrelevanz wird beim Wechsel neu vorbelegt.`}
+            </div>
+          </div>
+
           {/* Modus-Toggle */}
           <div style={{ marginBottom: '20px' }}>
             <label style={labelStyle}>Eingabe der Angebote</label>
@@ -1062,11 +1137,11 @@ export default function App() {
           </div>
         </section>
 
-        {/* LEISTUNGSSPEKTRUM & ZERTIFIKATE WETTBEWERB */}
+        {/* LEISTUNGSSPEKTRUM: Kundenbedarf + Wettbewerbs-Abdeckung */}
         <section style={cardStyle} className="print-keep">
           <h2 className="fraunces" style={h2Style}>Leistungsspektrum & Zertifikate des Wettbewerbs</h2>
           <p style={{ fontSize: '14px', color: '#5A6478', marginBottom: '20px' }}>
-            Haken Sie an, was der bisherige Dienstleister tatsächlich abdeckt. Alles, was offen bleibt, muss extern oder intern kompensiert werden — und wird im PDF als Versorgungslücke ausgewiesen.
+            Pro Leistung zwei Häkchen: <strong>Kundenbedarf</strong> = der Kunde braucht das in diesem Angebot. <strong>Wettbewerb</strong> = der bisherige Dienstleister deckt es ab. Die Mehrkosten-Dämpfung berechnet sich aus dem Verhältnis abgedeckter zu kundenrelevanten Leistungen.
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
@@ -1075,36 +1150,65 @@ export default function App() {
               <span style={{ fontSize: '12px', color: '#5A6478' }}>
                 {showAllServices
                   ? `Alle ${SERVICES.length} Jolmes-Leistungen`
-                  : `${branchenrelevanteServices.length} von ${SERVICES.length} (${BRANCHEN[branche].label})`}
+                  : `${sichtbareServices.length} von ${SERVICES.length} (Gewerk × ${BRANCHEN[branche].label})`}
               </span>
               <button
                 onClick={() => setShowAllServices(v => !v)}
                 style={{ ...btnSecondary, padding: '6px 12px', fontSize: '12px' }}
               >
-                {showAllServices ? '← Nur branchenrelevante' : 'Alle Leistungen anzeigen →'}
+                {showAllServices ? '← Nur Gewerk-/branchenrelevante' : 'Alle Leistungen anzeigen →'}
               </button>
             </div>
           </div>
           {SERVICE_KATEGORIEN.map(kat => {
             const items = sichtbareServices.filter(s => s.kategorie === kat);
             if (items.length === 0) return null;
-            const abgedeckt = items.filter(s => wettbewerbServices[s.id]).length;
+            const kundenZahl = items.filter(s => kundenrelevant[s.id]).length;
+            const abgedeckt = items.filter(s => kundenrelevant[s.id] && wettbewerbServices[s.id]).length;
             return (
               <div key={kat} style={{ marginBottom: '18px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                   <div style={{ fontSize: '13px', fontWeight: 600, color: '#1A2332', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kat}</div>
-                  <div style={{ fontSize: '12px', color: '#5A6478' }}>{abgedeckt} von {items.length} abgedeckt</div>
+                  <div style={{ fontSize: '12px', color: '#5A6478' }}>{kundenZahl} kundenrelevant · {abgedeckt} davon vom Wettbewerb abgedeckt</div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '8px' }}>
                   {items.map(s => {
-                    const checked = !!wettbewerbServices[s.id];
+                    const kunde = !!kundenrelevant[s.id];
+                    const wettb = !!wettbewerbServices[s.id];
                     const branchenfremd = !isServiceRelevant(s);
+                    const gewerkfremd = !isServiceImGewerk(s);
                     return (
-                      <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: `1px solid ${checked ? '#B8E5D2' : '#D5CFC4'}`, borderRadius: '6px', background: checked ? '#EDF9F3' : '#FCFAF6', cursor: 'pointer', fontSize: '14px', opacity: branchenfremd ? 0.6 : 1 }}>
-                        <input type="checkbox" checked={checked} onChange={() => toggleService(s.id)} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#19A979' }} />
-                        <span style={{ flex: 1 }}>{s.label}</span>
-                        {branchenfremd && <span style={{ fontSize: '10px', color: '#9A9485', textTransform: 'uppercase', letterSpacing: '0.05em' }} title="für die gewählte Branche untypisch">extra</span>}
-                      </label>
+                      <div
+                        key={s.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '10px 12px',
+                          border: `1px solid ${kunde ? '#1A2332' : '#D5CFC4'}`,
+                          borderRadius: '6px',
+                          background: kunde ? '#FCFAF6' : '#F5F1EA',
+                          fontSize: '14px',
+                          opacity: kunde ? 1 : 0.65,
+                        }}
+                      >
+                        <span style={{ flex: 1, fontWeight: kunde ? 500 : 400 }}>{s.label}</span>
+                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+                          {(branchenfremd || gewerkfremd) && (
+                            <span style={{ fontSize: '10px', color: '#9A9485', textTransform: 'uppercase', letterSpacing: '0.05em' }} title={gewerkfremd ? 'liegt außerhalb der aktiven Gewerke' : 'für die gewählte Branche untypisch'}>
+                              {gewerkfremd ? 'extra-Gewerk' : 'extra'}
+                            </span>
+                          )}
+                          <label title="Kunde braucht diese Leistung" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', border: `1px solid ${kunde ? '#1A2332' : '#D5CFC4'}`, borderRadius: '4px', background: kunde ? '#1A2332' : 'white', color: kunde ? '#F5F1EA' : '#5A6478', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>
+                            <input type="checkbox" checked={kunde} onChange={() => toggleKundenrelevant(s.id)} style={{ width: '13px', height: '13px', cursor: 'pointer', margin: 0 }} />
+                            Kunde
+                          </label>
+                          <label title="Wettbewerb deckt diese Leistung ab" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', border: `1px solid ${wettb ? '#19A979' : '#D5CFC4'}`, borderRadius: '4px', background: wettb ? '#EDF9F3' : 'white', color: wettb ? '#19A979' : '#5A6478', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}>
+                            <input type="checkbox" checked={wettb} onChange={() => toggleService(s.id)} style={{ width: '13px', height: '13px', cursor: 'pointer', margin: 0, accentColor: '#19A979' }} />
+                            Wettb.
+                          </label>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -1163,16 +1267,16 @@ export default function App() {
             })}
           </div>
 
-          {/* Zusammenfassung Lücken — auf branchen-relevante Leistungen beschränkt */}
+          {/* Zusammenfassung Lücken — auf kundenrelevante Leistungen beschränkt */}
           <div style={{ marginTop: '24px', padding: '16px 18px', background: '#FFF4ED', border: '1px solid #FFD4BB', borderRadius: '8px' }}>
             <div style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '10px', fontWeight: 600 }}>
               Lücken beim Wettbewerb (Jolmes deckt es ab) — {BRANCHEN[branche].label}
             </div>
             {(() => {
-              const luecken = branchenrelevanteServices.filter(s => !wettbewerbServices[s.id]);
+              const luecken = kundenrelevanteServices.filter(s => !wettbewerbServices[s.id]);
               const fehlendeZert = aktiveZertifikate.filter(z => !wettbewerbZertifikate[z.id]);
               if (luecken.length === 0 && fehlendeZert.length === 0) {
-                return <div style={{ fontSize: '13px', color: '#1A2332' }}>Wettbewerb deckt alle Leistungen und Zertifikate ab — Differenzierung über TCO und Service-Qualität.</div>;
+                return <div style={{ fontSize: '13px', color: '#1A2332' }}>Wettbewerb deckt alle kundenrelevanten Leistungen und Zertifikate ab — Differenzierung über TCO und Service-Qualität.</div>;
               }
               return (
                 <>
@@ -1224,7 +1328,7 @@ export default function App() {
             return (
               <div style={{ marginTop: '12px', padding: '12px 16px', background: bg, borderLeft: `3px solid ${border}`, borderRadius: '4px', fontSize: '13px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
                 <span style={{ opacity: 0.85 }}>
-                  Wettbewerb deckt ab: <strong>{c.checkedSrv}/{c.totalSrv}</strong> Leistungen ({srvPct}%) · <strong>{c.checkedCert}/{c.totalCert}</strong> Zertifikate ({certPct}%)
+                  Wettbewerb deckt ab: <strong>{c.checkedSrv}/{c.totalSrv}</strong> kundenrelevante Leistungen ({srvPct}%) · <strong>{c.checkedCert}/{c.totalCert}</strong> Zertifikate ({certPct}%)
                 </span>
                 <span style={{ opacity: 0.7, fontSize: '12px' }}>
                   {allCovered
