@@ -1339,7 +1339,7 @@ export default function App() {
             </button>
           </div>
           <p style={{ fontSize: '14px', color: T.muted, marginBottom: '16px' }}>
-            Kategorien aufklappen zum Anpassen. <strong>Kunde braucht</strong> / <strong>Wettbewerb kann</strong>. Das Badge „Angebot“ erscheint nur, wenn die Leistung im aktuellen Angebot liegt und der Kunde sie braucht.
+            Kategorien aufklappen zum Anpassen. <strong>Kunde braucht</strong> / <strong>Wettbewerb kann</strong>. Das Badge „Angebot“ erscheint nur bei Lücken: im aktuellen Angebot, vom Kunden gebraucht, Wettbewerb kann es nicht.
           </p>
 
           {/* Kompakt-Zusammenfassung */}
@@ -1404,7 +1404,7 @@ export default function App() {
                         const wettb = !!wettbewerbServices[s.id];
                         const branchenfremd = !isServiceRelevant(s);
                         const imAngebot = isImAngebot(s);
-                        const showAngebotBadge = imAngebot && kunde;
+                        const showAngebotBadge = imAngebot && kunde && !wettb;
                         return (
                           <div
                             key={s.id}
