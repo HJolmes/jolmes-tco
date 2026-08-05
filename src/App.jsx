@@ -994,8 +994,10 @@ export default function App() {
           .print-keep { break-inside: avoid; }
           details > *:not(summary) { display: block !important; }
           details summary { cursor: default !important; }
-          .accordion-body { display: block !important; }
+          .accordion-body,
+          .accordion-body.is-collapsed { display: block !important; }
         }
+        .accordion-body.is-collapsed { display: none; }
         @media (max-width: 640px) {
           details summary { gap: 8px !important; }
           details summary > div:first-child { gap: 8px !important; }
@@ -1367,7 +1369,7 @@ export default function App() {
             if (items.length === 0) return null;
             const kundenZahl = items.filter(s => kundenrelevant[s.id]).length;
             const abgedeckt = items.filter(s => kundenrelevant[s.id] && wettbewerbServices[s.id]).length;
-            const offen = forceOpenAll || openServiceKats.has(kat);
+            const offen = openServiceKats.has(kat);
             return (
               <div key={kat} style={{ marginBottom: '10px', border: `1px solid ${T.line}`, borderRadius: '8px', overflow: 'hidden', background: 'white' }}>
                 <button
@@ -1396,8 +1398,7 @@ export default function App() {
                     {kundenZahl} kundenrelevant · {abgedeckt} abgedeckt · {kundenZahl - abgedeckt} Lücke{kundenZahl - abgedeckt === 1 ? '' : 'n'}
                   </span>
                 </button>
-                {(offen || forceOpenAll) && (
-                  <div className="accordion-body" style={{ padding: '0 16px 16px', borderTop: `1px solid ${T.line}` }}>
+                <div className={`accordion-body${offen ? '' : ' is-collapsed'}`} style={{ padding: '0 16px 16px', borderTop: `1px solid ${T.line}` }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px', paddingTop: '14px' }}>
                       {items.map(s => {
                         const kunde = !!kundenrelevant[s.id];
@@ -1449,7 +1450,6 @@ export default function App() {
                       })}
                     </div>
                   </div>
-                )}
               </div>
             );
           })}
@@ -1467,7 +1467,7 @@ export default function App() {
                 gap: '12px',
                 flexWrap: 'wrap',
                 padding: '14px 16px',
-                background: (certsOpen || forceOpenAll) ? T.soft : 'white',
+                background: certsOpen ? T.soft : 'white',
                 border: 'none',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
@@ -1475,7 +1475,7 @@ export default function App() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span className="no-print" style={{ fontSize: '14px', color: T.muted, width: '16px' }}>{(certsOpen || forceOpenAll) ? '▾' : '▸'}</span>
+                <span className="no-print" style={{ fontSize: '14px', color: T.muted, width: '16px' }}>{certsOpen ? '▾' : '▸'}</span>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: T.ink, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Zertifikate</span>
                 {certsSyncedAt && (
                   <span style={{ fontSize: '11px', color: T.muted }}>Sync: {new Date(certsSyncedAt).toLocaleDateString('de-DE')}</span>
@@ -1485,8 +1485,7 @@ export default function App() {
                 {wettbewerbCoverage.checkedCert}/{wettbewerbCoverage.totalCert} beim Wettbewerb · {fehlendeZert.length} fehlend
               </span>
             </button>
-            {(certsOpen || forceOpenAll) && (
-              <div className="accordion-body" style={{ padding: '0 16px 16px', borderTop: `1px solid ${T.line}` }}>
+            <div className={`accordion-body${certsOpen ? '' : ' is-collapsed'}`} style={{ padding: '0 16px 16px', borderTop: `1px solid ${T.line}` }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '10px', paddingTop: '14px' }}>
                   {aktiveZertifikate.map(z => {
                     const checked = !!wettbewerbZertifikate[z.id];
@@ -1556,7 +1555,6 @@ export default function App() {
                   })}
                 </div>
               </div>
-            )}
           </div>
 
           {/* Lücken — Top-N */}
