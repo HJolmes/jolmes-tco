@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 
 // ============================================================
@@ -613,12 +613,30 @@ const GRUPPEN_LABELS = {
 };
 
 const GRUPPEN_COLORS = {
-  A: '#E8743B',
-  B: '#19A979',
-  C: '#945ECF',
-  D: '#13A4B4',
-  E: '#525DF4',
-  'B-spez': '#BF399E',
+  A: '#0E7490',
+  B: '#0F766E',
+  C: '#B45309',
+  D: '#1D4ED8',
+  E: '#334155',
+  'B-spez': '#9F1239',
+};
+
+// Visuelle Tokens — kühles Industriebüro statt Creme/Terrakotta
+const T = {
+  bg: '#E8EDF2',
+  card: '#FFFFFF',
+  ink: '#0A1628',
+  muted: '#5A6B7D',
+  line: '#C9D3DE',
+  soft: '#F3F6F9',
+  accent: '#0E7490',
+  accentSoft: '#E0F2FE',
+  cost: '#C2410C',
+  costSoft: '#FFF1E8',
+  good: '#0F766E',
+  goodSoft: '#E6F5F1',
+  dark: '#0A1628',
+  dark2: '#152238',
 };
 
 // Aktuelles Jolmes-Leistungsportfolio (Quelle: jolmes.de — jeder Eintrag entspricht
@@ -712,7 +730,6 @@ function defaultKundenrelevantFor(branche) {
 }
 
 const formatEUR = (n) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
-const formatNum = (n) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(n);
 
 export default function App() {
   const [branche, setBranche] = useState('industrie');
@@ -743,6 +760,21 @@ export default function App() {
   // Hybrid-Filter: standardmäßig nur branchenrelevante Leistungen einblenden;
   // Sales kann per Toggle alle 29 Leistungen sichtbar machen.
   const [showAllServices, setShowAllServices] = useState(false);
+  // Akkordeon: Leistungskategorien und Zertifikate standardmäßig zugeklappt
+  const [openServiceKats, setOpenServiceKats] = useState(() => new Set());
+  const [certsOpen, setCertsOpen] = useState(false);
+  const [showAllGaps, setShowAllGaps] = useState(false);
+
+  const scrollToErgebnis = () => {
+    document.getElementById('ergebnis')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const toggleServiceKat = (kat) => {
+    setOpenServiceKats(prev => {
+      const next = new Set(prev);
+      if (next.has(kat)) next.delete(kat); else next.add(kat);
+      return next;
+    });
+  };
 
   // Live-Zertifikatsdaten aus /zertifikate/index.json (vom täglichen Sync-Workflow
   // geschrieben). Fallback auf die hardcoded ZERTIFIKATE-Konstante, falls die
@@ -772,10 +804,10 @@ export default function App() {
   const certStatus = (gueltigBis) => {
     if (!gueltigBis) return null;
     const days = Math.floor((new Date(gueltigBis) - new Date(today)) / 86400000);
-    if (days < 0)   return { color: '#C0392B', bg: '#FBEAE7', label: `abgelaufen (${gueltigBis})` };
-    if (days < 30)  return { color: '#C0392B', bg: '#FBEAE7', label: `läuft in ${days} T ab (${gueltigBis})` };
-    if (days < 90)  return { color: '#B58300', bg: '#FFF6DB', label: `läuft in ${days} T ab (${gueltigBis})` };
-    return { color: '#19A979', bg: '#EDF9F3', label: `gültig bis ${gueltigBis}` };
+    if (days < 0)   return { color: '#9F1239', bg: '#FFF1F2', label: `abgelaufen (${gueltigBis})` };
+    if (days < 30)  return { color: '#9F1239', bg: '#FFF1F2', label: `läuft in ${days} T ab (${gueltigBis})` };
+    if (days < 90)  return { color: '#B45309', bg: '#FFFBEB', label: `läuft in ${days} T ab (${gueltigBis})` };
+    return { color: T.good, bg: T.goodSoft, label: `gültig bis ${gueltigBis}` };
   };
 
   useEffect(() => {
@@ -838,6 +870,9 @@ export default function App() {
     setAktiveGewerke(new Set(SERVICE_KATEGORIEN));
     setKundenrelevant(defaultKundenrelevantFor('industrie'));
     setShowAllServices(false);
+    setOpenServiceKats(new Set());
+    setCertsOpen(false);
+    setShowAllGaps(false);
   };
 
   // Branche-spezifische Service-Auswahl. branchen===null = universell relevant.
@@ -942,67 +977,98 @@ export default function App() {
   const nettoVorteil = gesamtMehrkosten - preisDifferenz;
   const preisDifferenzProzent = volumenWettbewerb > 0 ? (preisDifferenz / volumenWettbewerb) * 100 : 0;
 
+  const GAP_LIMIT = 5;
+  const lueckenServices = kundenrelevanteServices.filter(s => !wettbewerbServices[s.id]);
+  const luckenImAngebot = lueckenServices.filter(isImAngebot);
+  const luckenCrossSell = lueckenServices.filter(s => !isImAngebot(s));
+  const fehlendeZert = aktiveZertifikate.filter(z => istZertRelevant(z) && !wettbewerbZertifikate[z.id]);
+
   return (
-    <div style={{ fontFamily: '"Inter", "Segoe UI", -apple-system, sans-serif', backgroundColor: '#F5F1EA', minHeight: '100vh', color: '#1A2332', padding: 'clamp(12px, 3vw, 24px)' }}>
+    <div style={{ fontFamily: '"Sora", "Segoe UI", sans-serif', backgroundColor: T.bg, minHeight: '100vh', color: T.ink, padding: 'clamp(12px, 3vw, 24px)', paddingBottom: '96px' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,700;6..72,800&family=Sora:wght@400;500;600;700&display=swap');
         @media print {
           body { background: white !important; }
           .no-print { display: none !important; }
           .page-break { page-break-before: always; }
           .print-keep { break-inside: avoid; }
-          /* Kategorien-Details im PDF-Druck immer ausgeklappt */
           details > *:not(summary) { display: block !important; }
           details summary { cursor: default !important; }
+          .accordion-body { display: block !important; }
         }
         @media (max-width: 640px) {
           details summary { gap: 8px !important; }
           details summary > div:first-child { gap: 8px !important; }
         }
-        .fraunces { font-family: 'Fraunces', Georgia, serif; }
-        .inter { font-family: 'Inter', sans-serif; }
-        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+        .display { font-family: 'Newsreader', Georgia, serif; }
+        .card-hover:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(10,22,40,0.08); }
         .card-hover { transition: all 0.2s ease; }
         details summary { list-style: none; cursor: pointer; }
         details summary::-webkit-details-marker { display: none; }
-        input[type="range"] { accent-color: #E8743B; }
+        input[type="range"] { accent-color: ${T.accent}; }
         .gradient-text {
-          background: linear-gradient(135deg, #E8743B 0%, #C0492A 100%);
+          background: linear-gradient(135deg, ${T.cost} 0%, #9A3412 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
         }
+        .sticky-jump {
+          position: sticky; top: 0; z-index: 40;
+          background: rgba(232,237,242,0.92);
+          backdrop-filter: blur(8px);
+          border-bottom: 1px solid ${T.line};
+          margin: -12px -12px 20px;
+          padding: 10px clamp(12px, 3vw, 24px);
+        }
+        @media (min-width: 768px) {
+          .sticky-jump { margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); padding-left: max(24px, calc(50vw - 640px)); padding-right: max(24px, calc(50vw - 640px)); }
+        }
       `}</style>
+
+      {/* Sticky Navigation */}
+      <div className="sticky-jump no-print">
+        <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: T.ink }}>
+            Jolmes TCO{kundenname ? ` · ${kundenname}` : ''}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button type="button" onClick={scrollToErgebnis} style={btnPrimary}>↓ Zum Ergebnis</button>
+            <button type="button" onClick={handlePrint} style={btnSecondary}>Als PDF drucken</button>
+          </div>
+        </div>
+      </div>
 
       <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
 
         {/* HEADER */}
-        <header style={{ marginBottom: '32px', paddingBottom: '24px', borderBottom: '2px solid #1A2332' }}>
+        <header style={{ marginBottom: '28px', paddingBottom: '20px', borderBottom: `2px solid ${T.ink}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
             <div>
-              <div style={{ display: 'inline-block', padding: '4px 12px', background: '#1A2332', color: '#F5F1EA', fontSize: '11px', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '12px' }}>
-                Jolmes Gruppe · Paderborn
+              <div style={{ fontSize: 'clamp(28px, 5vw, 42px)', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: '8px', lineHeight: 1.05 }}>
+                Jolmes
               </div>
-              <h1 className="fraunces" style={{ fontSize: 'clamp(30px, 6vw, 52px)', lineHeight: 1.05, fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
-                Was kostet es, uns <span className="gradient-text" style={{ fontStyle: 'italic' }}>nicht</span><br />zu beauftragen?
+              <div style={{ display: 'inline-block', padding: '3px 10px', background: T.ink, color: '#E8EDF2', fontSize: '11px', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '14px' }}>
+                TCO-Vertriebstool · Paderborn
+              </div>
+              <h1 className="display" style={{ fontSize: 'clamp(26px, 5vw, 44px)', lineHeight: 1.1, fontWeight: 700, margin: 0, letterSpacing: '-0.02em', maxWidth: '720px' }}>
+                Was kostet es, uns <span className="gradient-text" style={{ fontStyle: 'italic' }}>nicht</span> zu beauftragen?
               </h1>
-              <p style={{ fontSize: '17px', color: '#5A6478', marginTop: '12px', maxWidth: '720px' }}>
+              <p style={{ fontSize: '16px', color: T.muted, marginTop: '12px', maxWidth: '640px', lineHeight: 1.5 }}>
                 Versteckte Mehrkosten bei nicht-zertifizierten Einzeldienstleistern — Total Cost of Ownership statt Stückpreis.
               </p>
             </div>
             <div className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button onClick={handlePrint} style={btnPrimary}>📄 Als PDF drucken</button>
-              <button onClick={reset} style={btnSecondary}>↻ Werte zurücksetzen</button>
-              <button onClick={() => setZeigAnnahmen(!zeigAnnahmen)} style={btnSecondary}>
-                {zeigAnnahmen ? '◐ Annahmen verbergen' : '◑ Annahmen anzeigen'}
+              <button type="button" onClick={reset} style={btnSecondary}>Werte zurücksetzen</button>
+              <button type="button" onClick={() => setZeigAnnahmen(!zeigAnnahmen)} style={btnSecondary}>
+                {zeigAnnahmen ? 'Annahmen verbergen' : 'Annahmen anzeigen'}
               </button>
             </div>
           </div>
         </header>
 
-        {/* INPUT-BEREICH */}
+        {/* 1. SZENARIO */}
         <section style={cardStyle}>
-          <h2 className="fraunces" style={h2Style}>1. Ihr Szenario</h2>
+          <h2 className="display" style={h2Style}>1. Ihr Szenario</h2>
 
           <div style={{ marginBottom: '20px' }}>
             <label style={labelStyle}>Branche (steuert alle Berechnungen)</label>
@@ -1016,12 +1082,11 @@ export default function App() {
               ))}
             </select>
             <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={badge('#1A2332', '#F5F1EA')}>Aktive Branche: {BRANCHEN[branche].label}</span>
-              <span style={badge('#E8743B', 'white')}>Compliance: {BRANCHEN[branche].compliance}</span>
+              <span style={badge(T.ink, '#E8EDF2')}>{BRANCHEN[branche].label}</span>
+              <span style={badge(T.accent, 'white')}>Compliance: {BRANCHEN[branche].compliance}</span>
             </div>
           </div>
 
-          {/* Gewerk-Auswahl: welche Jolmes-Sparten betrifft dieses konkrete Angebot? */}
           <div style={{ marginBottom: '20px' }}>
             <label style={labelStyle}>Worüber machen wir gerade ein Angebot? (Gewerk)</label>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1030,13 +1095,14 @@ export default function App() {
                 return (
                   <button
                     key={kat}
+                    type="button"
                     onClick={() => toggleGewerk(kat)}
                     style={{
                       padding: '8px 14px',
-                      background: aktiv ? '#1A2332' : 'white',
-                      color: aktiv ? '#F5F1EA' : '#1A2332',
-                      border: `1px solid ${aktiv ? '#1A2332' : '#D5CFC4'}`,
-                      borderRadius: '20px',
+                      background: aktiv ? T.ink : 'white',
+                      color: aktiv ? '#E8EDF2' : T.ink,
+                      border: `1px solid ${aktiv ? T.ink : T.line}`,
+                      borderRadius: '6px',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -1048,21 +1114,21 @@ export default function App() {
                 );
               })}
             </div>
-            <div style={{ marginTop: '8px', fontSize: '12px', color: '#5A6478' }}>
-              Markiert die Leistungen, die im aktuellen Preisangebot enthalten sind. Kundenrelevante Leistungen aus anderen Gewerken bleiben weiterhin im Vergleich — als Cross-Sell-/Bündel-Argument bei höherem Preis.
+            <div style={{ marginTop: '8px', fontSize: '12px', color: T.muted }}>
+              Markiert Leistungen im aktuellen Preisangebot. Andere kundenrelevante Leistungen bleiben im Vergleich als Bündel-Argument.
             </div>
           </div>
 
-          {/* Modus-Toggle */}
           <div style={{ marginBottom: '20px' }}>
             <label style={labelStyle}>Eingabe der Angebote</label>
-            <div style={{ display: 'flex', gap: '0', borderRadius: '6px', overflow: 'hidden', border: '1px solid #D5CFC4', width: 'fit-content' }}>
+            <div style={{ display: 'flex', gap: '0', borderRadius: '6px', overflow: 'hidden', border: `1px solid ${T.line}`, width: 'fit-content' }}>
               <button
+                type="button"
                 onClick={() => setEingabeModus('gesamt')}
                 style={{
                   padding: '10px 20px',
-                  background: eingabeModus === 'gesamt' ? '#1A2332' : 'white',
-                  color: eingabeModus === 'gesamt' ? '#F5F1EA' : '#1A2332',
+                  background: eingabeModus === 'gesamt' ? T.ink : 'white',
+                  color: eingabeModus === 'gesamt' ? '#E8EDF2' : T.ink,
                   border: 'none',
                   fontSize: '13px',
                   fontWeight: 600,
@@ -1073,13 +1139,14 @@ export default function App() {
                 Gesamtsumme / Jahr
               </button>
               <button
+                type="button"
                 onClick={() => setEingabeModus('objekt')}
                 style={{
                   padding: '10px 20px',
-                  background: eingabeModus === 'objekt' ? '#1A2332' : 'white',
-                  color: eingabeModus === 'objekt' ? '#F5F1EA' : '#1A2332',
+                  background: eingabeModus === 'objekt' ? T.ink : 'white',
+                  color: eingabeModus === 'objekt' ? '#E8EDF2' : T.ink,
                   border: 'none',
-                  borderLeft: '1px solid #D5CFC4',
+                  borderLeft: `1px solid ${T.line}`,
                   fontSize: '13px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -1091,49 +1158,47 @@ export default function App() {
             </div>
           </div>
 
-          {/* Angebotspaar — visuell hervorgehoben */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '20px', padding: '20px', background: '#FCFAF6', border: '1px solid #EDE7DD', borderRadius: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '20px', padding: '20px', background: T.soft, border: `1px solid ${T.line}`, borderRadius: '8px' }}>
             <div>
-              <label style={{ ...labelStyle, color: '#C0492A' }}>
+              <label style={{ ...labelStyle, color: T.cost }}>
                 Angebot Wettbewerb {eingabeModus === 'objekt' ? '(€/Jahr/Objekt)' : '(€/Jahr)'}
               </label>
               <input
                 type="number"
                 value={volumen}
                 onChange={(e) => setVolumen(Number(e.target.value))}
-                style={{ ...inputStyle, borderColor: '#C0492A', borderWidth: '2px' }}
+                style={{ ...inputStyle, borderColor: T.cost, borderWidth: '2px' }}
               />
             </div>
             <div>
-              <label style={{ ...labelStyle, color: '#19A979' }}>
+              <label style={{ ...labelStyle, color: T.good }}>
                 Ihr Angebot Jolmes {eingabeModus === 'objekt' ? '(€/Jahr/Objekt)' : '(€/Jahr)'}
               </label>
               <input
                 type="number"
                 value={jolmesAngebot}
                 onChange={(e) => setJolmesAngebot(Number(e.target.value))}
-                style={{ ...inputStyle, borderColor: '#19A979', borderWidth: '2px' }}
+                style={{ ...inputStyle, borderColor: T.good, borderWidth: '2px' }}
               />
             </div>
           </div>
 
-          {/* Live-Vorschau Preisdifferenz */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px', padding: '14px 18px', background: preisDifferenz > 0 ? '#FFF4ED' : '#EDF9F3', borderRadius: '6px', border: `1px solid ${preisDifferenz > 0 ? '#FFD4BB' : '#B8E5D2'}` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px', padding: '14px 18px', background: preisDifferenz > 0 ? T.costSoft : T.goodSoft, borderRadius: '6px', border: `1px solid ${preisDifferenz > 0 ? '#FDBA74' : '#99D5C5'}` }}>
             <div>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '2px' }}>Wettbewerb gesamt/Jahr</div>
-              <div className="fraunces" style={{ fontSize: '20px', fontWeight: 600 }}>{formatEUR(volumenWettbewerb)}</div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: T.muted, marginBottom: '2px' }}>Wettbewerb gesamt/Jahr</div>
+              <div className="display" style={{ fontSize: '20px', fontWeight: 700 }}>{formatEUR(volumenWettbewerb)}</div>
             </div>
             <div>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '2px' }}>Jolmes gesamt/Jahr</div>
-              <div className="fraunces" style={{ fontSize: '20px', fontWeight: 600 }}>{formatEUR(volumenJolmes)}</div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: T.muted, marginBottom: '2px' }}>Jolmes gesamt/Jahr</div>
+              <div className="display" style={{ fontSize: '20px', fontWeight: 700 }}>{formatEUR(volumenJolmes)}</div>
             </div>
             <div>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '2px' }}>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: T.muted, marginBottom: '2px' }}>
                 {preisDifferenz > 0 ? 'Mehrpreis Jolmes' : preisDifferenz < 0 ? 'Ersparnis Jolmes' : 'Gleicher Preis'}
               </div>
-              <div className="fraunces" style={{ fontSize: '20px', fontWeight: 700, color: preisDifferenz > 0 ? '#C0492A' : '#19A979' }}>
+              <div className="display" style={{ fontSize: '20px', fontWeight: 700, color: preisDifferenz > 0 ? T.cost : T.good }}>
                 {preisDifferenz > 0 ? '+' : ''}{formatEUR(preisDifferenz)}
-                <span style={{ fontSize: '12px', color: '#5A6478', marginLeft: '6px', fontWeight: 400 }}>
+                <span style={{ fontSize: '12px', color: T.muted, marginLeft: '6px', fontWeight: 400 }}>
                   ({preisDifferenz > 0 ? '+' : ''}{preisDifferenzProzent.toFixed(1)}%)
                 </span>
               </div>
@@ -1160,251 +1225,35 @@ export default function App() {
           </div>
         </section>
 
-        {/* LEISTUNGSSPEKTRUM: Kundenbedarf + Wettbewerbs-Abdeckung */}
-        <section style={cardStyle} className="print-keep">
-          <h2 className="fraunces" style={h2Style}>Leistungsspektrum & Zertifikate des Wettbewerbs</h2>
-          <p style={{ fontSize: '14px', color: '#5A6478', marginBottom: '20px' }}>
-            Pro Leistung zwei Häkchen: <strong>Kunde</strong> = der Kunde braucht das (auch außerhalb unseres aktuellen Angebot-Gewerks — das ist der Bündel-Vorteil). <strong>Wettb.</strong> = der bisherige Dienstleister deckt es ab. Leistungen, die zum aktuellen Angebot gehören, tragen ein <strong>Angebot</strong>-Badge.
-          </p>
+        {/* 2. ERGEBNIS — früh sichtbar */}
+        <section id="ergebnis" style={{ ...cardStyle, background: `linear-gradient(145deg, ${T.dark} 0%, ${T.dark2} 100%)`, color: '#E8EDF2', position: 'relative', overflow: 'hidden', scrollMarginTop: '64px' }} className="print-keep">
+          <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '260px', height: '260px', background: 'radial-gradient(circle, rgba(14,116,144,0.25) 0%, transparent 70%)' }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
-            <h3 style={{ ...h3Style, marginBottom: 0 }}>Dienstleistungen</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '12px', color: '#5A6478' }}>
-                {showAllServices
-                  ? `Alle ${SERVICES.length} Jolmes-Leistungen`
-                  : `${sichtbareServices.length} von ${SERVICES.length} (${BRANCHEN[branche].label})`}
-              </span>
-              <button
-                onClick={() => setShowAllServices(v => !v)}
-                style={{ ...btnSecondary, padding: '6px 12px', fontSize: '12px' }}
-              >
-                {showAllServices ? '← Nur branchenrelevante' : 'Alle Leistungen anzeigen →'}
-              </button>
-            </div>
-          </div>
-          {SERVICE_KATEGORIEN.map(kat => {
-            const items = sichtbareServices.filter(s => s.kategorie === kat);
-            if (items.length === 0) return null;
-            const kundenZahl = items.filter(s => kundenrelevant[s.id]).length;
-            const abgedeckt = items.filter(s => kundenrelevant[s.id] && wettbewerbServices[s.id]).length;
-            return (
-              <div key={kat} style={{ marginBottom: '18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1A2332', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kat}</div>
-                  <div style={{ fontSize: '12px', color: '#5A6478' }}>{kundenZahl} kundenrelevant · {abgedeckt} davon vom Wettbewerb abgedeckt</div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '10px' }}>
-                  {items.map(s => {
-                    const kunde = !!kundenrelevant[s.id];
-                    const wettb = !!wettbewerbServices[s.id];
-                    const branchenfremd = !isServiceRelevant(s);
-                    const imAngebot = isImAngebot(s);
-                    return (
-                      <div
-                        key={s.id}
-                        style={{
-                          padding: '12px 14px',
-                          border: `1px solid ${kunde ? '#C9C2B5' : '#E5DFD3'}`,
-                          borderLeft: `3px solid ${imAngebot ? '#E8743B' : kunde ? '#1A2332' : 'transparent'}`,
-                          borderRadius: '6px',
-                          background: kunde ? 'white' : '#FAF6EE',
-                          fontSize: '14px',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '10px', minHeight: '20px' }}>
-                          <span style={{ flex: 1, fontWeight: kunde ? 500 : 400, color: kunde ? '#1A2332' : '#5A6478', lineHeight: 1.3, wordBreak: 'break-word' }}>
-                            {s.label}
-                          </span>
-                          <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
-                            {imAngebot && (
-                              <span title="Teil des aktuellen Preisangebots" style={{ fontSize: '9px', padding: '2px 6px', background: '#E8743B', color: 'white', borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                Angebot
-                              </span>
-                            )}
-                            {branchenfremd && (
-                              <span title="für die gewählte Branche untypisch" style={{ fontSize: '9px', padding: '2px 6px', background: '#EDE7DD', color: '#9A9485', borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                extra
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '16px', paddingTop: '8px', borderTop: '1px solid #EDE7DD' }}>
-                          <label title="Kunde braucht diese Leistung" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: kunde ? '#1A2332' : '#9A9485', fontWeight: kunde ? 600 : 500, flex: 1 }}>
-                            <input type="checkbox" checked={kunde} onChange={() => toggleKundenrelevant(s.id)} style={{ width: '15px', height: '15px', cursor: 'pointer', margin: 0, accentColor: '#1A2332' }} />
-                            Kunde braucht
-                          </label>
-                          <label title="Wettbewerb deckt diese Leistung ab" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: wettb ? '#19A979' : '#9A9485', fontWeight: wettb ? 600 : 500, flex: 1 }}>
-                            <input type="checkbox" checked={wettb} onChange={() => toggleService(s.id)} style={{ width: '15px', height: '15px', cursor: 'pointer', margin: 0, accentColor: '#19A979' }} />
-                            Wettbewerb kann
-                          </label>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '24px', marginBottom: '8px' }}>
-            <h3 style={{ ...h3Style, marginBottom: 0 }}>Zertifikate (Jolmes-Nachweise zum Download)</h3>
-            {certsSyncedAt && (
-              <span style={{ fontSize: '11px', color: '#9A9485' }}>
-                Auto-Sync: {new Date(certsSyncedAt).toLocaleDateString('de-DE')}
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
-            {aktiveZertifikate.map(z => {
-              const checked = !!wettbewerbZertifikate[z.id];
-              const relevant = istZertRelevant(z);
-              const url = resolveCertUrl(z.downloadUrl);
-              const isPdf = url && /\.pdf(\?|#|$)/i.test(url);
-              const linkLabel = isPdf ? '↓ PDF' : '↗ Ansehen';
-              const status = certStatus(z.gueltigBis);
-              return (
-                <div
-                  key={z.id}
-                  style={{
-                    padding: '12px 14px',
-                    border: '1px solid #E5DFD3',
-                    borderLeft: `3px solid ${relevant && checked ? '#19A979' : 'transparent'}`,
-                    borderRadius: '6px',
-                    background: relevant ? 'white' : '#FAF6EE',
-                    fontSize: '14px',
-                    opacity: relevant ? 1 : 0.6,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px', minHeight: '20px' }}>
-                    <span style={{ flex: 1, fontWeight: 500, color: '#1A2332', lineHeight: 1.3, wordBreak: 'break-word' }}>
-                      {z.label}
-                    </span>
-                    {url ? (
-                      <a href={url} target="_blank" rel="noopener noreferrer" {...(isPdf ? { download: true } : {})}
-                         style={{ fontSize: '11px', color: '#E8743B', textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 600, padding: '2px 8px', border: '1px solid #FFD4BB', borderRadius: '3px', background: 'white', flexShrink: 0 }}>
-                        {linkLabel}
-                      </a>
-                    ) : (
-                      <span title="Zertifikat-PDF unter public/zertifikate/ hinterlegen oder Sync-Workflow ausführen"
-                            style={{ fontSize: '10px', color: '#9A9485', whiteSpace: 'nowrap', fontStyle: 'italic', flexShrink: 0 }}>
-                        PDF folgt
-                      </span>
-                    )}
-                  </div>
-                  {(z.firmen?.length || z.nachKonformitaet?.length || status) && (
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '10px' }}>
-                      {(z.firmen || []).map(fid => {
-                        const firma = FIRMEN.find(f => f.id === fid);
-                        if (!firma) return null;
-                        return <span key={fid} title="Offiziell zertifiziert" style={{ fontSize: '9px', padding: '2px 6px', background: '#1A2332', color: '#F5F1EA', borderRadius: '3px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>{firma.label}</span>;
-                      })}
-                      {(z.nachKonformitaet || []).map(fid => {
-                        const firma = FIRMEN.find(f => f.id === fid);
-                        if (!firma) return null;
-                        return <span key={`k-${fid}`} title="Arbeitet nach der Norm, ist dort aber nicht zertifiziert" style={{ fontSize: '9px', padding: '2px 6px', background: 'white', color: '#5A6478', border: '1px dashed #B5AE9F', borderRadius: '3px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>{firma.label} · nach Norm</span>;
-                      })}
-                      {status && (
-                        <span style={{ fontSize: '9px', padding: '2px 6px', background: status.bg, color: status.color, borderRadius: '3px', letterSpacing: '0.04em', fontWeight: 700, textTransform: 'uppercase' }}>
-                          {status.label}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <div style={{ paddingTop: '8px', borderTop: '1px solid #EDE7DD', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                    <label title={relevant ? 'Wettbewerb hat dieses Zertifikat' : 'Aktuell keine kundenrelevante Leistung im Geltungsbereich — Zertifikat fließt nicht in die Coverage ein.'} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: relevant ? 'pointer' : 'not-allowed', fontSize: '12px', color: checked && relevant ? '#19A979' : '#9A9485', fontWeight: checked && relevant ? 600 : 500 }}>
-                      <input type="checkbox" checked={checked} disabled={!relevant} onChange={() => toggleZert(z.id)} style={{ width: '15px', height: '15px', cursor: relevant ? 'pointer' : 'not-allowed', margin: 0, accentColor: '#19A979' }} />
-                      Wettbewerb hat dieses Zertifikat
-                    </label>
-                    {!relevant && (
-                      <span title="Wird relevant, sobald eine Leistung aus dem Geltungsbereich der Firma als kundenrelevant markiert ist" style={{ fontSize: '9px', padding: '2px 6px', background: '#EDE7DD', color: '#9A9485', borderRadius: '3px', letterSpacing: '0.05em', fontWeight: 600, textTransform: 'uppercase' }}>
-                        nicht im Scope
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Zusammenfassung Lücken — getrennt nach Angebots-Scope und Cross-Sell */}
-          <div style={{ marginTop: '24px', padding: '16px 18px', background: '#FFF4ED', border: '1px solid #FFD4BB', borderRadius: '8px' }}>
-            <div style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '10px', fontWeight: 600 }}>
-              Lücken beim Wettbewerb (Jolmes deckt es ab) — {BRANCHEN[branche].label}
-            </div>
-            {(() => {
-              const luecken = kundenrelevanteServices.filter(s => !wettbewerbServices[s.id]);
-              const luckenImAngebot = luecken.filter(isImAngebot);
-              const luckenCrossSell = luecken.filter(s => !isImAngebot(s));
-              const fehlendeZert = aktiveZertifikate.filter(z => istZertRelevant(z) && !wettbewerbZertifikate[z.id]);
-              if (luecken.length === 0 && fehlendeZert.length === 0) {
-                return <div style={{ fontSize: '13px', color: '#1A2332' }}>Wettbewerb deckt alle kundenrelevanten Leistungen und Zertifikate ab — Differenzierung über TCO und Service-Qualität.</div>;
-              }
-              const Chip = ({ label, accent }) => (
-                <span style={{ display: 'inline-block', padding: '4px 10px', background: 'white', border: `1px solid ${accent}`, borderRadius: '4px', fontSize: '12px', color: '#1A2332' }}>{label}</span>
-              );
-              return (
-                <>
-                  {luckenImAngebot.length > 0 && (
-                    <div style={{ marginBottom: '12px' }}>
-                      <div style={{ fontSize: '12px', color: '#5A6478', marginBottom: '6px' }}>Direkt im aktuellen Angebot fehlend ({luckenImAngebot.length}):</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {luckenImAngebot.map(s => <Chip key={s.id} label={s.label} accent="#E8743B" />)}
-                      </div>
-                    </div>
-                  )}
-                  {luckenCrossSell.length > 0 && (
-                    <div style={{ marginBottom: fehlendeZert.length > 0 ? '12px' : 0 }}>
-                      <div style={{ fontSize: '12px', color: '#5A6478', marginBottom: '6px' }}>Cross-Sell / Bündel-Argument — kundenrelevant außerhalb des Angebot-Gewerks ({luckenCrossSell.length}):</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {luckenCrossSell.map(s => <Chip key={s.id} label={s.label} accent="#FFD4BB" />)}
-                      </div>
-                    </div>
-                  )}
-                  {fehlendeZert.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: '12px', color: '#5A6478', marginBottom: '6px' }}>Fehlende Zertifikate ({fehlendeZert.length}):</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {fehlendeZert.map(z => <Chip key={z.id} label={z.label} accent="#FFD4BB" />)}
-                      </div>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        </section>
-
-        {/* HAUPTERGEBNIS */}
-        <section style={{ ...cardStyle, background: 'linear-gradient(135deg, #1A2332 0%, #2D3D55 100%)', color: '#F5F1EA', position: 'relative', overflow: 'hidden' }} className="print-keep">
-          <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(232,116,59,0.15) 0%, transparent 70%)' }}></div>
-
-          <h2 className="fraunces" style={{ ...h2Style, color: '#F5F1EA', borderColor: 'rgba(245,241,234,0.2)' }}>
+          <h2 className="display" style={{ ...h2Style, color: '#E8EDF2', borderColor: 'rgba(232,237,242,0.18)' }}>
             2. Ihre versteckten Mehrkosten
           </h2>
 
           {kundenname && <p style={{ opacity: 0.7, fontSize: '14px', marginBottom: '8px' }}>Kalkulation für: <strong>{kundenname}</strong></p>}
 
-          {/* Coverage-Status: macht transparent, dass Mehrkosten an die abgehakten Wettbewerbs-Leistungen/Zerts gekoppelt sind. */}
           {(() => {
             const c = wettbewerbCoverage;
             const srvPct = Math.round(c.service * 100);
             const certPct = Math.round(c.cert * 100);
             const allCovered = c.service >= 1 && c.cert >= 1;
             const noneCovered = c.service === 0 && c.cert === 0;
-            const bg = allCovered ? 'rgba(25,169,121,0.15)' : noneCovered ? 'rgba(232,116,59,0.15)' : 'rgba(245,241,234,0.08)';
-            const border = allCovered ? '#19A979' : '#E8743B';
+            const bg = allCovered ? 'rgba(15,118,110,0.2)' : noneCovered ? 'rgba(194,65,12,0.2)' : 'rgba(232,237,242,0.08)';
+            const border = allCovered ? T.good : T.cost;
             return (
               <div style={{ marginTop: '12px', padding: '12px 16px', background: bg, borderLeft: `3px solid ${border}`, borderRadius: '4px', fontSize: '13px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
-                <span style={{ opacity: 0.85 }}>
-                  Wettbewerb deckt ab: <strong>{c.checkedSrv}/{c.totalSrv}</strong> kundenrelevante Leistungen ({srvPct}%) · <strong>{c.checkedCert}/{c.totalCert}</strong> Zertifikate ({certPct}%)
+                <span style={{ opacity: 0.9 }}>
+                  Wettbewerb deckt ab: <strong>{c.checkedSrv}/{c.totalSrv}</strong> Leistungen ({srvPct}%) · <strong>{c.checkedCert}/{c.totalCert}</strong> Zertifikate ({certPct}%)
                 </span>
                 <span style={{ opacity: 0.7, fontSize: '12px' }}>
                   {allCovered
-                    ? '→ kein Versorgungs- oder Compliance-Risiko, Mehrkosten = 0. Differenzierung nur über Preis und Service-Qualität.'
+                    ? '→ kein Versorgungsrisiko, Mehrkosten = 0.'
                     : noneCovered
-                    ? '→ volles Risikoprofil, Mehrkosten unverändert.'
-                    : '→ Mehrkosten je Risikogruppe (Lieferantenmgmt / Compliance / Operativ / Strategisch) entsprechend gedämpft.'}
+                    ? '→ volles Risikoprofil.'
+                    : '→ Mehrkosten je Risikogruppe entsprechend gedämpft.'}
                 </span>
               </div>
             );
@@ -1413,28 +1262,28 @@ export default function App() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', marginTop: '24px' }}>
             <div>
               <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', opacity: 0.7 }}>Mehrkosten / Jahr</div>
-              <div className="fraunces" style={{ fontSize: 'clamp(40px, 8vw, 64px)', fontWeight: 800, color: '#E8743B', lineHeight: 1, marginTop: '4px' }}>
+              <div className="display" style={{ fontSize: 'clamp(40px, 8vw, 64px)', fontWeight: 800, color: '#FB923C', lineHeight: 1, marginTop: '4px' }}>
                 {formatEUR(gesamtMehrkosten)}
               </div>
               <div style={{ fontSize: '13px', opacity: 0.6, marginTop: '4px' }}>
-                = {volumenWettbewerb > 0 ? ((gesamtMehrkosten / volumenWettbewerb) * 100).toFixed(1) : '0'}% des Wettbewerbs-Auftragsvolumens
+                = {volumenWettbewerb > 0 ? ((gesamtMehrkosten / volumenWettbewerb) * 100).toFixed(1) : '0'}% des Wettbewerbs-Volumens
               </div>
             </div>
             <div>
               <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', opacity: 0.7 }}>3-Jahres-Hochrechnung</div>
-              <div className="fraunces" style={{ fontSize: 'clamp(26px, 5vw, 36px)', fontWeight: 600, marginTop: '4px' }}>
+              <div className="display" style={{ fontSize: 'clamp(26px, 5vw, 36px)', fontWeight: 600, marginTop: '4px' }}>
                 {formatEUR(gesamtMehrkosten * 3)}
               </div>
             </div>
             <div>
               <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.15em', opacity: 0.7 }}>5-Jahres-Hochrechnung</div>
-              <div className="fraunces" style={{ fontSize: 'clamp(26px, 5vw, 36px)', fontWeight: 600, marginTop: '4px' }}>
+              <div className="display" style={{ fontSize: 'clamp(26px, 5vw, 36px)', fontWeight: 600, marginTop: '4px' }}>
                 {formatEUR(gesamtMehrkosten * 5)}
               </div>
             </div>
           </div>
 
-          <div style={{ marginTop: '32px', padding: '20px', background: 'rgba(245,241,234,0.08)', borderRadius: '8px', borderLeft: `3px solid ${nettoVorteil > 0 ? '#19A979' : '#E8743B'}` }}>
+          <div style={{ marginTop: '28px', padding: '20px', background: 'rgba(232,237,242,0.08)', borderRadius: '8px', borderLeft: `3px solid ${nettoVorteil > 0 ? T.good : T.cost}` }}>
             <div style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.15em', opacity: 0.7, marginBottom: '12px' }}>
               Vergleichsrechnung Total Cost of Ownership
             </div>
@@ -1442,18 +1291,18 @@ export default function App() {
               <div>
                 <div style={{ fontSize: '13px', opacity: 0.7 }}>
                   {preisDifferenz > 0
-                    ? `Mehrpreis Jolmes-Angebot (+${preisDifferenzProzent.toFixed(1)}%)`
+                    ? `Mehrpreis Jolmes (+${preisDifferenzProzent.toFixed(1)}%)`
                     : preisDifferenz < 0
-                    ? `Ersparnis Jolmes-Angebot (${preisDifferenzProzent.toFixed(1)}%)`
+                    ? `Ersparnis Jolmes (${preisDifferenzProzent.toFixed(1)}%)`
                     : 'Preisgleich mit Wettbewerb'}
                 </div>
-                <div className="fraunces" style={{ fontSize: '24px', fontWeight: 600, color: '#F5F1EA' }}>
+                <div className="display" style={{ fontSize: '24px', fontWeight: 600 }}>
                   {preisDifferenz > 0 ? '+' : ''}{formatEUR(preisDifferenz)}
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: '13px', opacity: 0.7 }}>Versteckte Mehrkosten Wettbewerb</div>
-                <div className="fraunces" style={{ fontSize: '24px', fontWeight: 600, color: '#E8743B' }}>
+                <div className="display" style={{ fontSize: '24px', fontWeight: 600, color: '#FB923C' }}>
                   {formatEUR(gesamtMehrkosten)}
                 </div>
               </div>
@@ -1461,30 +1310,343 @@ export default function App() {
                 <div style={{ fontSize: '13px', opacity: 0.7 }}>
                   {nettoVorteil > 0 ? 'Effektiver Vorteil Jolmes' : 'Effektiver Nachteil Jolmes'}
                 </div>
-                <div className="fraunces" style={{ fontSize: '28px', fontWeight: 700, color: nettoVorteil > 0 ? '#19A979' : '#E8743B' }}>
+                <div className="display" style={{ fontSize: '28px', fontWeight: 700, color: nettoVorteil > 0 ? '#5EEAD4' : '#FB923C' }}>
                   {nettoVorteil > 0 ? '+' : ''}{formatEUR(nettoVorteil)} / Jahr
                 </div>
               </div>
             </div>
-            <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid rgba(245,241,234,0.15)', fontSize: '12px', opacity: 0.75, fontFamily: 'monospace' }}>
-              Rechnung: versteckte Mehrkosten Wettbewerb ({formatEUR(gesamtMehrkosten)}) {preisDifferenz >= 0 ? '−' : '+'} {preisDifferenz >= 0 ? 'Mehrpreis Jolmes' : 'Ersparnis Jolmes'} ({formatEUR(Math.abs(preisDifferenz))}) = {formatEUR(nettoVorteil)}
+            <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid rgba(232,237,242,0.15)', fontSize: '12px', opacity: 0.75, fontFamily: 'monospace' }}>
+              Rechnung: {formatEUR(gesamtMehrkosten)} {preisDifferenz >= 0 ? '−' : '+'} {formatEUR(Math.abs(preisDifferenz))} = {formatEUR(nettoVorteil)}
             </div>
+          </div>
+
+          <div className="no-print" style={{ marginTop: '20px', fontSize: '13px', opacity: 0.75 }}>
+            Feinabstimmung zu Leistungen & Zertifikaten folgt unten — ändert die Zahlen live.
           </div>
         </section>
 
-        {/* DIAGRAMME */}
-        <section style={{ ...cardStyle }} className="page-break print-keep">
-          <h2 className="fraunces" style={h2Style}>3. Visuelle Aufschlüsselung</h2>
+        {/* 3. LEISTUNGEN — einklappbar */}
+        <section style={cardStyle} className="print-keep">
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '8px' }}>
+            <h2 className="display" style={{ ...h2Style, marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>3. Leistungsspektrum & Zertifikate</h2>
+            <button
+              type="button"
+              className="no-print"
+              onClick={() => setShowAllServices(v => !v)}
+              style={{ ...btnSecondary, padding: '6px 12px', fontSize: '12px' }}
+            >
+              {showAllServices ? '← Nur branchenrelevante' : 'Alle Leistungen'}
+            </button>
+          </div>
+          <p style={{ fontSize: '14px', color: T.muted, marginBottom: '16px' }}>
+            Kategorien aufklappen zum Anpassen. <strong>Kunde braucht</strong> / <strong>Wettbewerb kann</strong>. Das Badge „Angebot“ erscheint nur bei Lücken: im aktuellen Angebot, vom Kunden gebraucht, Wettbewerb kann es nicht.
+          </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '32px' }}>
+          {/* Kompakt-Zusammenfassung */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginBottom: '18px', padding: '14px 16px', background: T.soft, borderRadius: '8px', border: `1px solid ${T.line}` }}>
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: T.muted }}>Kundenrelevant</div>
+              <div className="display" style={{ fontSize: '22px', fontWeight: 700 }}>{wettbewerbCoverage.totalSrv}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: T.muted }}>Vom Wettbewerb</div>
+              <div className="display" style={{ fontSize: '22px', fontWeight: 700 }}>{wettbewerbCoverage.checkedSrv}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: T.muted }}>Zertifikate fehlt</div>
+              <div className="display" style={{ fontSize: '22px', fontWeight: 700, color: T.cost }}>{fehlendeZert.length}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: T.muted }}>Lücken Leistungen</div>
+              <div className="display" style={{ fontSize: '22px', fontWeight: 700, color: T.cost }}>{lueckenServices.length}</div>
+            </div>
+          </div>
+
+          {SERVICE_KATEGORIEN.map(kat => {
+            const items = sichtbareServices.filter(s => s.kategorie === kat);
+            if (items.length === 0) return null;
+            const kundenZahl = items.filter(s => kundenrelevant[s.id]).length;
+            const abgedeckt = items.filter(s => kundenrelevant[s.id] && wettbewerbServices[s.id]).length;
+            const offen = forceOpenAll || openServiceKats.has(kat);
+            return (
+              <div key={kat} style={{ marginBottom: '10px', border: `1px solid ${T.line}`, borderRadius: '8px', overflow: 'hidden', background: 'white' }}>
+                <button
+                  type="button"
+                  onClick={() => toggleServiceKat(kat)}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                    padding: '14px 16px',
+                    background: offen ? T.soft : 'white',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span className="no-print" style={{ fontSize: '14px', color: T.muted, width: '16px' }}>{offen ? '▾' : '▸'}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: T.ink, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kat}</span>
+                  </div>
+                  <span style={{ fontSize: '12px', color: T.muted }}>
+                    {kundenZahl} kundenrelevant · {abgedeckt} abgedeckt · {kundenZahl - abgedeckt} Lücke{kundenZahl - abgedeckt === 1 ? '' : 'n'}
+                  </span>
+                </button>
+                {(offen || forceOpenAll) && (
+                  <div className="accordion-body" style={{ padding: '0 16px 16px', borderTop: `1px solid ${T.line}` }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px', paddingTop: '14px' }}>
+                      {items.map(s => {
+                        const kunde = !!kundenrelevant[s.id];
+                        const wettb = !!wettbewerbServices[s.id];
+                        const branchenfremd = !isServiceRelevant(s);
+                        const imAngebot = isImAngebot(s);
+                        const showAngebotBadge = imAngebot && kunde && !wettb;
+                        return (
+                          <div
+                            key={s.id}
+                            style={{
+                              padding: '12px 14px',
+                              border: `1px solid ${kunde ? T.line : '#E2E8F0'}`,
+                              borderLeft: `3px solid ${showAngebotBadge ? T.accent : kunde ? T.ink : 'transparent'}`,
+                              borderRadius: '6px',
+                              background: kunde ? 'white' : T.soft,
+                              fontSize: '14px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '10px', minHeight: '20px' }}>
+                              <span style={{ flex: 1, fontWeight: kunde ? 500 : 400, color: kunde ? T.ink : T.muted, lineHeight: 1.3, wordBreak: 'break-word' }}>
+                                {s.label}
+                              </span>
+                              <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }}>
+                                {showAngebotBadge && (
+                                  <span title="Im aktuellen Angebot und kundenrelevant" style={{ fontSize: '9px', padding: '2px 6px', background: T.accent, color: 'white', borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                    Angebot
+                                  </span>
+                                )}
+                                {branchenfremd && (
+                                  <span title="für die gewählte Branche untypisch" style={{ fontSize: '9px', padding: '2px 6px', background: '#E2E8F0', color: T.muted, borderRadius: '3px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                    extra
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '16px', paddingTop: '8px', borderTop: `1px solid ${T.line}` }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: kunde ? T.ink : T.muted, fontWeight: kunde ? 600 : 500, flex: 1 }}>
+                                <input type="checkbox" checked={kunde} onChange={() => toggleKundenrelevant(s.id)} style={{ width: '15px', height: '15px', cursor: 'pointer', margin: 0, accentColor: T.ink }} />
+                                Kunde braucht
+                              </label>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: wettb ? T.good : T.muted, fontWeight: wettb ? 600 : 500, flex: 1 }}>
+                                <input type="checkbox" checked={wettb} onChange={() => toggleService(s.id)} style={{ width: '15px', height: '15px', cursor: 'pointer', margin: 0, accentColor: T.good }} />
+                                Wettbewerb kann
+                              </label>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Zertifikate Akkordeon */}
+          <div style={{ marginTop: '16px', border: `1px solid ${T.line}`, borderRadius: '8px', overflow: 'hidden', background: 'white' }}>
+            <button
+              type="button"
+              onClick={() => setCertsOpen(v => !v)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                flexWrap: 'wrap',
+                padding: '14px 16px',
+                background: (certsOpen || forceOpenAll) ? T.soft : 'white',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="no-print" style={{ fontSize: '14px', color: T.muted, width: '16px' }}>{(certsOpen || forceOpenAll) ? '▾' : '▸'}</span>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: T.ink, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Zertifikate</span>
+                {certsSyncedAt && (
+                  <span style={{ fontSize: '11px', color: T.muted }}>Sync: {new Date(certsSyncedAt).toLocaleDateString('de-DE')}</span>
+                )}
+              </div>
+              <span style={{ fontSize: '12px', color: T.muted }}>
+                {wettbewerbCoverage.checkedCert}/{wettbewerbCoverage.totalCert} beim Wettbewerb · {fehlendeZert.length} fehlend
+              </span>
+            </button>
+            {(certsOpen || forceOpenAll) && (
+              <div className="accordion-body" style={{ padding: '0 16px 16px', borderTop: `1px solid ${T.line}` }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '10px', paddingTop: '14px' }}>
+                  {aktiveZertifikate.map(z => {
+                    const checked = !!wettbewerbZertifikate[z.id];
+                    const relevant = istZertRelevant(z);
+                    const url = resolveCertUrl(z.downloadUrl);
+                    const isPdf = url && /\.pdf(\?|#|$)/i.test(url);
+                    const linkLabel = isPdf ? '↓ PDF' : '↗ Ansehen';
+                    const status = certStatus(z.gueltigBis);
+                    return (
+                      <div
+                        key={z.id}
+                        style={{
+                          padding: '12px 14px',
+                          border: `1px solid ${T.line}`,
+                          borderLeft: `3px solid ${relevant && checked ? T.good : 'transparent'}`,
+                          borderRadius: '6px',
+                          background: relevant ? 'white' : T.soft,
+                          fontSize: '14px',
+                          opacity: relevant ? 1 : 0.6,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px', minHeight: '20px' }}>
+                          <span style={{ flex: 1, fontWeight: 500, color: T.ink, lineHeight: 1.3, wordBreak: 'break-word' }}>
+                            {z.label}
+                          </span>
+                          {url ? (
+                            <a href={url} target="_blank" rel="noopener noreferrer" {...(isPdf ? { download: true } : {})}
+                               style={{ fontSize: '11px', color: T.accent, textDecoration: 'none', whiteSpace: 'nowrap', fontWeight: 600, padding: '2px 8px', border: `1px solid ${T.accent}`, borderRadius: '3px', background: 'white', flexShrink: 0 }}>
+                              {linkLabel}
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: '10px', color: T.muted, whiteSpace: 'nowrap', fontStyle: 'italic', flexShrink: 0 }}>PDF folgt</span>
+                          )}
+                        </div>
+                        {(z.firmen?.length || z.nachKonformitaet?.length || status) && (
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '10px' }}>
+                            {(z.firmen || []).map(fid => {
+                              const firma = FIRMEN.find(f => f.id === fid);
+                              if (!firma) return null;
+                              return <span key={fid} title="Offiziell zertifiziert" style={{ fontSize: '9px', padding: '2px 6px', background: T.ink, color: '#E8EDF2', borderRadius: '3px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>{firma.label}</span>;
+                            })}
+                            {(z.nachKonformitaet || []).map(fid => {
+                              const firma = FIRMEN.find(f => f.id === fid);
+                              if (!firma) return null;
+                              return <span key={`k-${fid}`} title="Arbeitet nach der Norm, nicht zertifiziert" style={{ fontSize: '9px', padding: '2px 6px', background: 'white', color: T.muted, border: `1px dashed ${T.line}`, borderRadius: '3px', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}>{firma.label} · nach Norm</span>;
+                            })}
+                            {status && (
+                              <span style={{ fontSize: '9px', padding: '2px 6px', background: status.bg, color: status.color, borderRadius: '3px', letterSpacing: '0.04em', fontWeight: 700, textTransform: 'uppercase' }}>
+                                {status.label}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <div style={{ paddingTop: '8px', borderTop: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: relevant ? 'pointer' : 'not-allowed', fontSize: '12px', color: checked && relevant ? T.good : T.muted, fontWeight: checked && relevant ? 600 : 500 }}>
+                            <input type="checkbox" checked={checked} disabled={!relevant} onChange={() => toggleZert(z.id)} style={{ width: '15px', height: '15px', cursor: relevant ? 'pointer' : 'not-allowed', margin: 0, accentColor: T.good }} />
+                            Wettbewerb hat dieses Zertifikat
+                          </label>
+                          {!relevant && (
+                            <span style={{ fontSize: '9px', padding: '2px 6px', background: '#E2E8F0', color: T.muted, borderRadius: '3px', letterSpacing: '0.05em', fontWeight: 600, textTransform: 'uppercase' }}>
+                              nicht im Scope
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Lücken — Top-N */}
+          <div style={{ marginTop: '20px', padding: '16px 18px', background: T.costSoft, border: '1px solid #FDBA74', borderRadius: '8px' }}>
+            <div style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: T.muted, marginBottom: '10px', fontWeight: 600 }}>
+              Wichtigste Lücken beim Wettbewerb — {BRANCHEN[branche].label}
+            </div>
+            {(() => {
+              if (lueckenServices.length === 0 && fehlendeZert.length === 0) {
+                return <div style={{ fontSize: '13px', color: T.ink }}>Wettbewerb deckt alles ab — Differenzierung über TCO und Service-Qualität.</div>;
+              }
+              const Chip = ({ label, accent }) => (
+                <span style={{ display: 'inline-block', padding: '4px 10px', background: 'white', border: `1px solid ${accent}`, borderRadius: '4px', fontSize: '12px', color: T.ink }}>{label}</span>
+              );
+              const slice = (arr) => showAllGaps ? arr : arr.slice(0, GAP_LIMIT);
+              const hasMore = !showAllGaps && (
+                luckenImAngebot.length > GAP_LIMIT ||
+                luckenCrossSell.length > GAP_LIMIT ||
+                fehlendeZert.length > GAP_LIMIT
+              );
+              return (
+                <>
+                  {luckenImAngebot.length > 0 && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '12px', color: T.muted, marginBottom: '6px' }}>
+                        Direkt im Angebot fehlend ({luckenImAngebot.length}):
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {slice(luckenImAngebot).map(s => <Chip key={s.id} label={s.label} accent={T.accent} />)}
+                        {!showAllGaps && luckenImAngebot.length > GAP_LIMIT && (
+                          <span style={{ fontSize: '12px', color: T.muted, alignSelf: 'center' }}>+{luckenImAngebot.length - GAP_LIMIT} weitere</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {luckenCrossSell.length > 0 && (
+                    <div style={{ marginBottom: fehlendeZert.length > 0 || hasMore ? '12px' : 0 }}>
+                      <div style={{ fontSize: '12px', color: T.muted, marginBottom: '6px' }}>
+                        Cross-Sell / Bündel ({luckenCrossSell.length}):
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {slice(luckenCrossSell).map(s => <Chip key={s.id} label={s.label} accent="#FDBA74" />)}
+                        {!showAllGaps && luckenCrossSell.length > GAP_LIMIT && (
+                          <span style={{ fontSize: '12px', color: T.muted, alignSelf: 'center' }}>+{luckenCrossSell.length - GAP_LIMIT} weitere</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {fehlendeZert.length > 0 && (
+                    <div style={{ marginBottom: hasMore ? '12px' : 0 }}>
+                      <div style={{ fontSize: '12px', color: T.muted, marginBottom: '6px' }}>
+                        Fehlende Zertifikate ({fehlendeZert.length}):
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {slice(fehlendeZert).map(z => <Chip key={z.id} label={z.label} accent="#FDBA74" />)}
+                        {!showAllGaps && fehlendeZert.length > GAP_LIMIT && (
+                          <span style={{ fontSize: '12px', color: T.muted, alignSelf: 'center' }}>+{fehlendeZert.length - GAP_LIMIT} weitere</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {(hasMore || showAllGaps) && (luckenImAngebot.length > GAP_LIMIT || luckenCrossSell.length > GAP_LIMIT || fehlendeZert.length > GAP_LIMIT) && (
+                    <button
+                      type="button"
+                      className="no-print"
+                      onClick={() => setShowAllGaps(v => !v)}
+                      style={{ ...btnSecondary, padding: '6px 12px', fontSize: '12px', marginTop: '4px' }}
+                    >
+                      {showAllGaps ? 'Nur Top-Lücken zeigen' : 'Alle Lücken anzeigen'}
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </section>
+
+        {/* 4. DIAGRAMME */}
+        <section style={{ ...cardStyle }} className="page-break print-keep">
+          <h2 className="display" style={h2Style}>4. Visuelle Aufschlüsselung</h2>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '32px' }}>
             <div>
               <h3 style={h3Style}>Top 10 Kostentreiber</h3>
               <ResponsiveContainer width="100%" height={400}>
                 <BarChart data={top10} layout="vertical" margin={{ left: 0, right: 30 }}>
-                  <CartesianGrid strokeDasharray="2 4" stroke="#D5CFC4" />
-                  <XAxis type="number" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} stroke="#5A6478" fontSize={11} />
-                  <YAxis type="category" dataKey="name" stroke="#5A6478" fontSize={10} width={180} />
-                  <Tooltip formatter={(v) => formatEUR(v)} contentStyle={{ background: '#1A2332', color: '#F5F1EA', border: 'none' }} />
+                  <CartesianGrid strokeDasharray="2 4" stroke={T.line} />
+                  <XAxis type="number" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} stroke={T.muted} fontSize={11} />
+                  <YAxis type="category" dataKey="name" stroke={T.muted} fontSize={10} width={160} />
+                  <Tooltip formatter={(v) => formatEUR(v)} contentStyle={{ background: T.dark, color: '#E8EDF2', border: 'none' }} />
                   <Bar dataKey="kosten" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -1497,7 +1659,7 @@ export default function App() {
                   <Pie data={gruppenSummen} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={60} outerRadius={120} paddingAngle={2}>
                     {gruppenSummen.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                   </Pie>
-                  <Tooltip formatter={(v) => formatEUR(v)} contentStyle={{ background: '#1A2332', color: '#F5F1EA', border: 'none' }} />
+                  <Tooltip formatter={(v) => formatEUR(v)} contentStyle={{ background: T.dark, color: '#E8EDF2', border: 'none' }} />
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
@@ -1508,21 +1670,21 @@ export default function App() {
             <h3 style={h3Style}>Kumulierte Mehrkosten über 5 Jahre</h3>
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={zeitreihe}>
-                <CartesianGrid strokeDasharray="2 4" stroke="#D5CFC4" />
-                <XAxis dataKey="jahr" stroke="#5A6478" fontSize={11} />
-                <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} stroke="#5A6478" fontSize={11} />
-                <Tooltip formatter={(v) => formatEUR(v)} contentStyle={{ background: '#1A2332', color: '#F5F1EA', border: 'none' }} />
-                <Line type="monotone" dataKey="kumuliert" stroke="#E8743B" strokeWidth={3} dot={{ fill: '#E8743B', r: 6 }} />
+                <CartesianGrid strokeDasharray="2 4" stroke={T.line} />
+                <XAxis dataKey="jahr" stroke={T.muted} fontSize={11} />
+                <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} stroke={T.muted} fontSize={11} />
+                <Tooltip formatter={(v) => formatEUR(v)} contentStyle={{ background: T.dark, color: '#E8EDF2', border: 'none' }} />
+                <Line type="monotone" dataKey="kumuliert" stroke={T.cost} strokeWidth={3} dot={{ fill: T.cost, r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </section>
 
-        {/* KATEGORIEN */}
+        {/* 5. KATEGORIEN */}
         <section style={{ ...cardStyle }} className="page-break">
-          <h2 className="fraunces" style={h2Style}>4. Kostenkategorien im Detail</h2>
-          <p style={{ fontSize: '14px', color: '#5A6478', marginBottom: '20px' }}>
-            Klicken Sie eine Kategorie an, um Begründung, Quelle und Annahmen zu sehen. Über den Schalter können Sie einzelne Posten aus der Berechnung ausschließen.
+          <h2 className="display" style={h2Style}>5. Kostenkategorien im Detail</h2>
+          <p style={{ fontSize: '14px', color: T.muted, marginBottom: '20px' }}>
+            Kategorie aufklappen für Begründung und Quelle. Über den Schalter einzelne Posten aus der Berechnung nehmen.
           </p>
 
           {Object.keys(GRUPPEN_LABELS).map(grp => {
@@ -1533,12 +1695,12 @@ export default function App() {
             return (
               <div key={grp} style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', paddingBottom: '8px', borderBottom: `2px solid ${GRUPPEN_COLORS[grp]}` }}>
-                  <div style={{ width: '12px', height: '12px', background: GRUPPEN_COLORS[grp], borderRadius: '50%' }}></div>
-                  <h3 className="fraunces" style={{ fontSize: '22px', fontWeight: 600, margin: 0, flex: 1 }}>
+                  <div style={{ width: '12px', height: '12px', background: GRUPPEN_COLORS[grp], borderRadius: '50%' }} />
+                  <h3 className="display" style={{ fontSize: '22px', fontWeight: 600, margin: 0, flex: 1 }}>
                     {grp !== 'B-spez' && `${grp}. `}{GRUPPEN_LABELS[grp]}
                   </h3>
-                  <div style={{ fontSize: '14px', color: '#5A6478' }}>
-                    Summe: <strong style={{ color: '#1A2332' }}>{formatEUR(gruppenSumme)}</strong>
+                  <div style={{ fontSize: '14px', color: T.muted }}>
+                    Summe: <strong style={{ color: T.ink }}>{formatEUR(gruppenSumme)}</strong>
                   </div>
                 </div>
 
@@ -1552,8 +1714,8 @@ export default function App() {
                         if (e.target.open) setExpandedCat(kat.id);
                       }}
                       style={{
-                        background: kat.aktiv ? 'white' : '#EDE7DD',
-                        border: `1px solid ${kat.aktiv ? '#D5CFC4' : '#C0B9AC'}`,
+                        background: kat.aktiv ? 'white' : '#E2E8F0',
+                        border: `1px solid ${kat.aktiv ? T.line : '#CBD5E1'}`,
                         borderRadius: '6px',
                         padding: '14px 16px',
                         opacity: kat.aktiv ? 1 : 0.55,
@@ -1576,19 +1738,19 @@ export default function App() {
                             </span>
                           )}
                         </div>
-                        <div className="fraunces" style={{ fontSize: '20px', fontWeight: 600, color: kat.aktiv ? '#E8743B' : '#5A6478', minWidth: '120px', textAlign: 'right' }}>
+                        <div className="display" style={{ fontSize: '20px', fontWeight: 600, color: kat.aktiv ? T.cost : T.muted, minWidth: '120px', textAlign: 'right' }}>
                           {formatEUR(kat.kosten)}
                         </div>
                       </summary>
 
-                      <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid #EDE7DD', fontSize: '13px', color: '#3A4456', lineHeight: 1.6 }}>
+                      <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: `1px solid ${T.line}`, fontSize: '13px', color: '#334155', lineHeight: 1.6 }}>
                         <p style={{ margin: '0 0 12px 0' }}>{kat.begruendung}</p>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                          <a href={kat.quelleUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#E8743B', textDecoration: 'none', fontWeight: 600, fontSize: '12px' }}>
+                          <a href={kat.quelleUrl} target="_blank" rel="noopener noreferrer" style={{ color: T.accent, textDecoration: 'none', fontWeight: 600, fontSize: '12px' }}>
                             ↗ Quelle: {kat.quelle}
                           </a>
                           {zeigAnnahmen && (
-                            <span style={{ fontSize: '11px', color: '#5A6478', fontFamily: 'monospace' }}>
+                            <span style={{ fontSize: '11px', color: T.muted, fontFamily: 'monospace' }}>
                               {kat.isStunden
                                 ? `${kat.basisStunden}h × ${stundensatz}€ × ${kat.isJaehrlich ? '1' : '12'} Mon × (${dienstleister}-1) × ${BRANCHEN[branche].multipliers[kat.multGroup]}`
                                 : `${(kat.basisProzent * 100).toFixed(2)}% × ${formatEUR(volumenWettbewerb)} × ${BRANCHEN[branche].multipliers[kat.multGroup]}`
@@ -1605,44 +1767,40 @@ export default function App() {
           })}
         </section>
 
-        {/* QUELLEN */}
+        {/* 6. QUELLEN */}
         <section style={cardStyle} className="page-break">
-          <h2 className="fraunces" style={h2Style}>5. Quellenverzeichnis</h2>
-          <p style={{ fontSize: '13px', color: '#5A6478', marginBottom: '16px' }}>Stand der Recherche: {new Date().toLocaleDateString('de-DE')}</p>
+          <h2 className="display" style={h2Style}>6. Quellenverzeichnis</h2>
+          <p style={{ fontSize: '13px', color: T.muted, marginBottom: '16px' }}>Stand der Recherche: {new Date().toLocaleDateString('de-DE')}</p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
             <div>
-              <h4 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '12px' }}>Branche & Verbände</h4>
+              <h4 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: T.muted, marginBottom: '12px' }}>Branche & Verbände</h4>
               <ul style={listStyle}>
                 <li><a href="https://www.die-gebaeudedienstleister.de/" target="_blank" rel="noopener noreferrer" style={linkStyle}>BIV — Bundesinnungsverband Gebäudereiniger</a></li>
-                <li><a href="https://www.gefma.de/" target="_blank" rel="noopener noreferrer" style={linkStyle}>GEFMA — Deutscher Verband Facility Management</a></li>
-                <li><a href="https://www.dguv.de/" target="_blank" rel="noopener noreferrer" style={linkStyle}>DGUV — Deutsche Gesetzliche Unfallversicherung</a></li>
+                <li><a href="https://www.gefma.de/" target="_blank" rel="noopener noreferrer" style={linkStyle}>GEFMA — Facility Management</a></li>
+                <li><a href="https://www.dguv.de/" target="_blank" rel="noopener noreferrer" style={linkStyle}>DGUV</a></li>
                 <li><a href="https://www.bgbau.de/" target="_blank" rel="noopener noreferrer" style={linkStyle}>BG BAU — AMS BG Bau</a></li>
               </ul>
             </div>
-
             <div>
-              <h4 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '12px' }}>Rechtliche Grundlagen</h4>
+              <h4 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: T.muted, marginBottom: '12px' }}>Rechtliche Grundlagen</h4>
               <ul style={listStyle}>
-                <li><a href="https://dejure.org/gesetze/BGB/831.html" target="_blank" rel="noopener noreferrer" style={linkStyle}>§831 BGB — Auswahl-/Überwachungsverschulden</a></li>
-                <li><a href="https://www.bafa.de/DE/Lieferketten/lieferketten_node.html" target="_blank" rel="noopener noreferrer" style={linkStyle}>LkSG — Lieferkettensorgfaltspflichtengesetz</a></li>
+                <li><a href="https://dejure.org/gesetze/BGB/831.html" target="_blank" rel="noopener noreferrer" style={linkStyle}>§831 BGB</a></li>
+                <li><a href="https://www.bafa.de/DE/Lieferketten/lieferketten_node.html" target="_blank" rel="noopener noreferrer" style={linkStyle}>LkSG — BAFA</a></li>
                 <li><a href="https://www.umweltbundesamt.de/umweltberichterstattung-csr-richtlinie" target="_blank" rel="noopener noreferrer" style={linkStyle}>CSRD — UBA</a></li>
-                <li><a href="https://www.gesetze-im-internet.de/ifsg/" target="_blank" rel="noopener noreferrer" style={linkStyle}>IfSG — Infektionsschutzgesetz</a></li>
+                <li><a href="https://www.gesetze-im-internet.de/ifsg/" target="_blank" rel="noopener noreferrer" style={linkStyle}>IfSG</a></li>
               </ul>
             </div>
-
             <div>
-              <h4 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '12px' }}>Studien & Reports</h4>
+              <h4 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: T.muted, marginBottom: '12px' }}>Studien & Reports</h4>
               <ul style={listStyle}>
-                <li><a href="https://ramp.com/blog/vendor-consolidation" target="_blank" rel="noopener noreferrer" style={linkStyle}>Ramp — Vendor Consolidation 2025</a></li>
+                <li><a href="https://ramp.com/blog/vendor-consolidation" target="_blank" rel="noopener noreferrer" style={linkStyle}>Ramp — Vendor Consolidation</a></li>
                 <li><a href="https://www.bvmed.de/themen/infektionsschutz/nosokomiale-infektionen" target="_blank" rel="noopener noreferrer" style={linkStyle}>BVMed/RKI — Nosokomiale Infektionen</a></li>
                 <li><a href="https://workdate.com/de/wiki/kosten-mitarbeiterfluktuation" target="_blank" rel="noopener noreferrer" style={linkStyle}>Workdate — Fluktuationskosten</a></li>
-                <li><a href="https://www.creditreform.de/aktuelles-wissen/pressemeldungen-fachbeitraege/news-details/show/neue-eu-vorgaben-2026-herausforderungen-fuer-den-mittelstand" target="_blank" rel="noopener noreferrer" style={linkStyle}>Creditreform — EU-Vorgaben 2026</a></li>
               </ul>
             </div>
-
             <div>
-              <h4 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '12px' }}>Zertifizierung & Audits</h4>
+              <h4 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.1em', color: T.muted, marginBottom: '12px' }}>Zertifizierung & Audits</h4>
               <ul style={listStyle}>
                 <li><a href="https://www.tuvsud.com/de-de/dienstleistungen/auditierung-und-zertifizierung/audit-services/lieferantenaudit" target="_blank" rel="noopener noreferrer" style={linkStyle}>TÜV SÜD — Lieferantenaudit</a></li>
                 <li><a href="https://www.bafin.de/DE/Aufsicht/BankenFinanzdienstleister/Risikomanagement/MaRisk/marisk_node.html" target="_blank" rel="noopener noreferrer" style={linkStyle}>BaFin — MaRisk / BAIT</a></li>
@@ -1653,13 +1811,12 @@ export default function App() {
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer style={{ marginTop: '48px', paddingTop: '24px', borderTop: '2px solid #1A2332', textAlign: 'center', color: '#5A6478', fontSize: '12px' }}>
-          <div className="fraunces" style={{ fontSize: '20px', color: '#1A2332', fontWeight: 600, marginBottom: '4px' }}>Jolmes Gruppe</div>
-          <div>Gebäudereinigung · Brand-/Wasserschadensanierung · Malerarbeiten · Bodenbeschichtung · Personalvermittlung · Glasreinigung · Unterhaltsreinigung</div>
-          <div style={{ marginTop: '8px' }}>Zertifiziert nach ISO 9001 · ISO 14001 · AMS BG Bau · Paderborn</div>
-          <div style={{ marginTop: '12px', fontStyle: 'italic' }}>
-            Die dargestellten Werte sind modellhafte Berechnungen auf Basis öffentlich verfügbarer Quellen und Branchenstudien. Tatsächliche Werte können abweichen und sollten im individuellen Beratungsgespräch validiert werden.
+        <footer style={{ marginTop: '40px', paddingTop: '20px', borderTop: `2px solid ${T.ink}`, textAlign: 'center', color: T.muted, fontSize: '12px' }}>
+          <div className="display" style={{ fontSize: '22px', color: T.ink, fontWeight: 700, marginBottom: '4px' }}>Jolmes Gruppe</div>
+          <div>Gebäudereinigung · Sanierung · Handwerk · Personal · Energie</div>
+          <div style={{ marginTop: '8px' }}>ISO 9001 · ISO 14001 · AMS BG Bau · Paderborn</div>
+          <div style={{ marginTop: '12px', fontStyle: 'italic', maxWidth: '720px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+            Die dargestellten Werte sind modellhafte Berechnungen auf Basis öffentlich verfügbarer Quellen. Tatsächliche Werte können abweichen und sollten im Beratungsgespräch validiert werden.
           </div>
         </footer>
 
@@ -1669,13 +1826,13 @@ export default function App() {
 }
 
 // STYLES
-const cardStyle = { background: 'white', borderRadius: '12px', padding: 'clamp(18px, 4vw, 32px)', marginBottom: '24px', boxShadow: '0 2px 8px rgba(26,35,50,0.06)' };
-const h2Style = { fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 700, margin: '0 0 24px 0', paddingBottom: '12px', borderBottom: '1px solid #EDE7DD', letterSpacing: '-0.01em' };
-const h3Style = { fontSize: '15px', fontWeight: 600, color: '#1A2332', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' };
-const labelStyle = { display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5A6478', marginBottom: '6px', fontWeight: 600 };
-const inputStyle = { width: '100%', padding: '10px 14px', border: '1px solid #D5CFC4', borderRadius: '6px', fontSize: '16px', background: '#FCFAF6', boxSizing: 'border-box', fontFamily: 'inherit' };
-const btnPrimary = { padding: '10px 18px', background: '#E8743B', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' };
-const btnSecondary = { padding: '10px 18px', background: 'transparent', color: '#1A2332', border: '1px solid #1A2332', borderRadius: '6px', fontWeight: 500, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' };
-const linkStyle = { color: '#1A2332', textDecoration: 'none', borderBottom: '1px dotted #5A6478', fontSize: '13px' };
+const cardStyle = { background: T.card, borderRadius: '10px', padding: 'clamp(18px, 4vw, 32px)', marginBottom: '20px', boxShadow: '0 1px 3px rgba(10,22,40,0.06)', border: `1px solid ${T.line}` };
+const h2Style = { fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 700, margin: '0 0 20px 0', paddingBottom: '12px', borderBottom: `1px solid ${T.line}`, letterSpacing: '-0.01em' };
+const h3Style = { fontSize: '14px', fontWeight: 600, color: T.ink, marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' };
+const labelStyle = { display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: T.muted, marginBottom: '6px', fontWeight: 600 };
+const inputStyle = { width: '100%', padding: '10px 14px', border: `1px solid ${T.line}`, borderRadius: '6px', fontSize: '16px', background: T.soft, boxSizing: 'border-box', fontFamily: 'inherit', color: T.ink };
+const btnPrimary = { padding: '10px 16px', background: T.accent, color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' };
+const btnSecondary = { padding: '10px 16px', background: 'transparent', color: T.ink, border: `1px solid ${T.ink}`, borderRadius: '6px', fontWeight: 500, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit' };
+const linkStyle = { color: T.ink, textDecoration: 'none', borderBottom: `1px dotted ${T.muted}`, fontSize: '13px' };
 const listStyle = { margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' };
 const badge = (bg, fg) => ({ display: 'inline-block', padding: '3px 10px', background: bg, color: fg, fontSize: '11px', fontWeight: 600, borderRadius: '4px', letterSpacing: '0.02em' });
