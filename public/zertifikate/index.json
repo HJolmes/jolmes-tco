@@ -1,5 +1,5 @@
 {
-  "syncedAt": "2026-08-26T04:02:46.375Z",
+  "syncedAt": "2026-08-28T15:22:23.876Z",
   "sourcePage": "https://jolmes.de/zertifikate/",
   "crawlError": null,
   "entries": [
@@ -43,7 +43,9 @@
         "handwerk",
         "energie"
       ],
-      "downloadUrl": "https://jolmes.de/zertifikate/"
+      "downloadUrl": "zertifikate/0197080_14001.pdf",
+      "gueltigBis": null,
+      "sourceUrl": "https://jolmes.de/wp-content/uploads/2024/07/0197080_14001.pdf"
     },
     {
       "id": "iso9001",
@@ -53,7 +55,9 @@
         "handwerk",
         "energie"
       ],
-      "downloadUrl": "https://jolmes.de/zertifikate/"
+      "downloadUrl": "zertifikate/0197080_9001.pdf",
+      "gueltigBis": null,
+      "sourceUrl": "https://jolmes.de/wp-content/uploads/2024/07/0197080_9001.pdf"
     },
     {
       "id": "meister",
